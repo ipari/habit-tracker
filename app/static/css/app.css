@@ -433,12 +433,12 @@ input {
 .settings-surface .settings-row { border-bottom: 0; }
 .settings-surface .settings-action { border-top: 1px solid var(--threads-border); }
 .settings-surface-message { margin: 0; padding: 0 1rem .75rem; }
-.settings-theme-row { display: grid; gap: .7rem; padding: .85rem 1rem; }
-.settings-theme-row > span { font-weight: 600; }
-.theme-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; margin: 0; }
+.settings-theme-row { display: flex; }
+.theme-options { display: flex; justify-content: flex-end; gap: .3rem; margin: 0; }
 .theme-option { position: relative; font-weight: 500; }
 .theme-option input { position: absolute; width: 1px; min-height: 1px; opacity: 0; pointer-events: none; }
-.theme-option span { display: grid; min-height: 2.5rem; padding: .4rem; place-items: center; border-radius: var(--radius-full); background: var(--threads-raised); color: var(--threads-secondary); font-size: .78rem; text-align: center; cursor: pointer; }
+.theme-option span { display: grid; width: 2.5rem; min-height: 2.5rem; place-items: center; border-radius: var(--radius-full); background: var(--threads-raised); color: var(--threads-secondary); cursor: pointer; }
+.theme-option svg { width: 1.15rem; height: 1.15rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 .theme-option input:checked + span { background: var(--threads-strong); color: var(--threads-bg); font-weight: 650; }
 .theme-option input:focus-visible + span { outline: 3px solid var(--threads-text); outline-offset: 2px; }
 .timezone-device-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -812,3 +812,38 @@ body { padding-bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
 :root[data-theme="dark"] .tab-item { color: #a0a0a5; }
 :root[data-theme="dark"] .tab-item.active { background: rgb(255 255 255 / 11%); color: #fff; box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%); }
 :root[data-theme="dark"] .habit-card:hover { background: #1b1b1b; }
+
+/* Keep a comfortable touch target while reducing the visible completion control. */
+.habit-toggle,
+.calendar-habit-toggle,
+.habit-card .habit-toggle {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  flex: 0 0 2.75rem;
+  background: transparent;
+  color: var(--completion-muted);
+}
+
+.habit-toggle:hover,
+.habit-card .habit-toggle:hover { background: transparent; }
+.habit-toggle .checkmark {
+  display: grid;
+  width: 2.3rem;
+  height: 2.3rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--completion-idle-bg);
+  color: var(--completion-muted);
+  transition: background-color 150ms ease, color 150ms ease;
+}
+.habit-toggle:hover .checkmark { background: var(--completion-idle-hover); }
+.habit-toggle[aria-pressed="true"],
+.habit-card .habit-toggle[aria-pressed="true"],
+.habit-card .habit-toggle[aria-pressed="true"]:hover { background: transparent; }
+.habit-toggle[aria-pressed="true"] .checkmark { background: var(--completion-accent); color: #fff; }
+:root[data-theme="dark"] .habit-toggle[aria-pressed="true"] .checkmark { color: #071208; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .habit-toggle[aria-pressed="true"] .checkmark { color: #071208; }
+}

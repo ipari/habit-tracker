@@ -32,6 +32,10 @@ def test_settings_uses_device_iana_timezone(client: TestClient) -> None:
     assert "시스템 설정" in response.text
     assert "Light" in response.text
     assert "Dark" in response.text
+    assert response.text.index("알림 권한") < response.text.index("화면 모드")
+    assert 'aria-label="시스템 설정"' in response.text
+    assert 'aria-label="Light"' in response.text
+    assert 'aria-label="Dark"' in response.text
 
     script = client.get("/static/js/app.js")
     assert "Intl.DateTimeFormat().resolvedOptions().timeZone" in script.text
