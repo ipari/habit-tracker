@@ -6,8 +6,19 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import Habit, HabitCompletion, HabitSchedule
-from app.domain.schedules import ScheduleWindow, is_scheduled, schedule_for_date
-from app.habits.service import application_timezone, habit_streak
+from app.domain.schedules import (
+    ScheduleWindow,
+    is_scheduled,
+    mask_to_weekdays,
+    schedule_for_date,
+)
+from app.habits.service import (
+    application_timezone,
+    compact_schedule_label,
+    habit_card_sort_key,
+    habit_streak,
+    twelve_hour_time_label,
+)
 
 WEEKDAY_HEADERS = ("월", "화", "수", "목", "금", "토", "일")
 
@@ -33,6 +44,9 @@ class CalendarHabit:
     completed: bool
     status_text: str
     streak: int
+    schedule_label: str
+    reminder_time_label: str | None
+    reminder_enabled: bool
 
 
 @dataclass(frozen=True)
@@ -196,8 +210,22 @@ def build_calendar_view(
                 completed=completed,
                 status_text=status_text,
                 streak=habit_streak(db, habit.id, today),
+                schedule_label=compact_schedule_label(
+                    mask_to_weekdays(window.weekdays_mask)
+                ),
+                reminder_time_label=(
+                    twelve_hour_time_label(habit.reminder.local_time)
+                    if habit.reminder is not None
+                    else None
+                ),
+                reminder_enabled=(
+                    habit.reminder.is_enabled if habit.reminder is not None else False
+                ),
             )
         )
+    selected_habits.sort(
+        key=lambda item: habit_card_sort_key(item.completed, item.habit)
+    )
 
     weekday = WEEKDAY_HEADERS[selected_date.weekday()]
     return CalendarView(

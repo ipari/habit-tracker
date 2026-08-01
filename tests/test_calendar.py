@@ -1,10 +1,10 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.calendar.service import build_calendar_view, month_dates, shift_month
-from app.db.models import Habit, HabitCompletion, HabitSchedule
+from app.db.models import Habit, HabitCompletion, HabitSchedule, Reminder
 from app.domain.schedules import weekdays_to_mask
 from app.habits.service import current_local_date
 from tests.conftest import client_database, csrf_token, login
@@ -87,6 +87,60 @@ def test_calendar_marks_unscheduled_completion_as_extra(client: TestClient) -> N
     assert view.habits[0].status_text == "추가 달성"
     selected_day = next(day for week in view.weeks for day in week if day.local_date == today)
     assert selected_day.extra_count == 1
+
+
+def test_calendar_orders_incomplete_habits_by_time_and_shows_metadata(
+    client: TestClient,
+) -> None:
+    database = client_database(client)
+    with database.session_factory() as db:
+        today = current_local_date(db)
+        specs = (
+            ("늦은 미완료", time(13, 0), False),
+            ("빠른 미완료", time(8, 0), False),
+            ("시간 없음", None, False),
+            ("완료 습관", time(7, 0), True),
+        )
+        for name, reminder_time, completed in specs:
+            habit = Habit(name=name, emoji="", background_preset="dawn")
+            db.add(habit)
+            db.flush()
+            db.add(
+                HabitSchedule(
+                    habit=habit,
+                    weekdays_mask=ALL_DAYS,
+                    effective_from=today - timedelta(days=40),
+                )
+            )
+            if reminder_time is not None:
+                db.add(
+                    Reminder(
+                        habit=habit,
+                        weekdays_mask=ALL_DAYS,
+                        local_time=reminder_time,
+                        timezone="Asia/Seoul",
+                        is_enabled=True,
+                    )
+                )
+            if completed:
+                db.add(HabitCompletion(habit=habit, local_date=today))
+        db.commit()
+        view = build_calendar_view(db, date(today.year, today.month, 1), today, today)
+
+    assert [item.habit.name for item in view.habits] == [
+        "빠른 미완료",
+        "늦은 미완료",
+        "시간 없음",
+        "완료 습관",
+    ]
+    login(client)
+    page = client.get(f"/calendar?selected={today.isoformat()}")
+    assert "연속 0회" in page.text
+    assert "매일" in page.text
+    assert "8:00 AM" in page.text
+    assert page.text.index("빠른 미완료") < page.text.index("늦은 미완료")
+    assert page.text.index("늦은 미완료") < page.text.index("시간 없음")
+    assert page.text.index("시간 없음") < page.text.index("완료 습관")
 
 
 def test_archived_habit_is_visible_before_archive_but_not_on_archive_day(

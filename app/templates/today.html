@@ -7,19 +7,7 @@
   </header>
   <div id="sync-error" class="error-slot" role="alert" aria-live="assertive">{% if save_error %}저장하지 못했습니다. 다시 시도해 주세요.{% endif %}</div>
 
-  {% if habits %}
-    <section class="habit-list" aria-label="오늘 수행할 습관">
-      {% for item in habits %}
-        {% include "habits/_today_card.html" %}
-      {% endfor %}
-    </section>
-  {% else %}
-    <section class="card empty" aria-labelledby="empty-title">
-      <div class="empty-icon" aria-hidden="true">🌿</div>
-      <h2 id="empty-title">오늘 예정된 습관이 없어요</h2>
-      <p class="muted">새 습관을 만들거나 오늘은 여유롭게 쉬어가세요.</p>
-    </section>
-  {% endif %}
+  {% include "habits/_today_list.html" %}
   <a class="add-habit-row" href="/habits/new">
     <span class="add-habit-icon" aria-hidden="true">+</span>
     <span>새 습관 추가</span>

@@ -72,10 +72,11 @@
         {% for item in calendar.habits %}
           <article class="calendar-habit-card{% if item.completed %} completed{% endif %}">
             {% from "_habit_icon.html" import habit_icon %}
+            {% from "_habit_metadata.html" import habit_metadata %}
             {{ habit_icon(item.habit.emoji) }}
             <div class="calendar-habit-content">
               <h3>{{ item.habit.name }}</h3>
-              <p class="muted historical-streak">현재 연속 {{ item.streak }}회</p>
+              {{ habit_metadata(item) }}
             </div>
             {% if not calendar.selected_is_future %}
               <form

@@ -7,7 +7,13 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.db.models import AppSettings, Habit, HabitCompletion, HabitSchedule, Reminder
-from app.domain.schedules import ScheduleWindow, is_scheduled, schedule_for_date
+from app.domain.schedules import (
+    WEEKDAY_LABELS,
+    ScheduleWindow,
+    is_scheduled,
+    mask_to_weekdays,
+    schedule_for_date,
+)
 from app.domain.streaks import calculate_streak
 
 
@@ -16,6 +22,35 @@ class TodayHabit:
     habit: Habit
     completed: bool
     streak: int
+    schedule_label: str
+    reminder_time_label: str | None
+    reminder_enabled: bool
+
+
+def compact_schedule_label(weekdays: tuple[int, ...]) -> str:
+    if weekdays == tuple(range(7)):
+        return "매일"
+    if weekdays == tuple(range(5)):
+        return "주중"
+    if weekdays == (5, 6):
+        return "주말"
+    return "·".join(WEEKDAY_LABELS[weekday] for weekday in weekdays)
+
+
+def twelve_hour_time_label(local_time: time) -> str:
+    display_hour = local_time.hour % 12 or 12
+    period = "AM" if local_time.hour < 12 else "PM"
+    return f"{display_hour}:{local_time.minute:02d} {period}"
+
+
+def habit_card_sort_key(completed: bool, habit: Habit) -> tuple[bool, bool, time, int]:
+    reminder = habit.reminder
+    return (
+        completed,
+        reminder is None,
+        reminder.local_time if reminder is not None else time.max,
+        habit.id,
+    )
 
 
 def application_timezone(db: Session) -> ZoneInfo:
@@ -130,15 +165,28 @@ def today_habits(db: Session, local_date: date) -> list[TodayHabit]:
     result: list[TodayHabit] = []
     for habit in habits:
         windows = schedule_windows(db, habit.id)
-        if not is_scheduled(schedule_for_date(windows, local_date), local_date):
+        window = schedule_for_date(windows, local_date)
+        if window is None or not is_scheduled(window, local_date):
             continue
+        reminder = habit.reminder
+        completed = habit.id in completed_ids
         result.append(
             TodayHabit(
                 habit=habit,
-                completed=habit.id in completed_ids,
+                completed=completed,
                 streak=habit_streak(db, habit.id, local_date),
+                schedule_label=compact_schedule_label(
+                    mask_to_weekdays(window.weekdays_mask)
+                ),
+                reminder_time_label=(
+                    twelve_hour_time_label(reminder.local_time)
+                    if reminder is not None
+                    else None
+                ),
+                reminder_enabled=reminder.is_enabled if reminder is not None else False,
             )
         )
+    result.sort(key=lambda item: habit_card_sort_key(item.completed, item.habit))
     return result
 
 

@@ -1,26 +1,13 @@
 {% extends "base.html" %}
 {% from "_habit_icon.html" import habit_icon %}
+{% from "_habit_metadata.html" import habit_metadata %}
 {% macro habit_row(item) -%}
   <article class="management-card">
     <a class="management-card-link" href="/habits/{{ item.habit.id }}?from=habits" aria-label="{{ item.habit.name }} 상세 보기">
       {{ habit_icon(item.habit.emoji) }}
       <div class="management-card-copy">
         <h2>{{ item.habit.name }}</h2>
-        <p class="habit-metadata">
-          <span>연속 {{ item.streak }}회</span>
-          <span aria-hidden="true">·</span>
-          <span>{{ item.schedule_label }}</span>
-          {% if item.reminder_time_label %}
-            <span aria-hidden="true">·</span>
-            <span class="reminder-time">
-              {% if item.reminder_enabled %}
-                <svg class="reminder-clock" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
-                <span class="sr-only">알림 켜짐</span>
-              {% endif %}
-              {{ item.reminder_time_label }}
-            </span>
-          {% endif %}
-        </p>
+        {{ habit_metadata(item) }}
       </div>
       <svg class="row-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
     </a>

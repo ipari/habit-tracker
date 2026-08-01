@@ -1,4 +1,5 @@
 {% from "_habit_icon.html" import habit_icon %}
+{% from "_habit_metadata.html" import habit_metadata %}
 <article
   id="habit-{{ item.habit.id }}"
   class="habit-card{% if item.completed %} completed{% endif %}"
@@ -8,7 +9,7 @@
     {{ habit_icon(item.habit.emoji) }}
     <div>
       <h2>{{ item.habit.name }}</h2>
-      <p class="streak">연속 {{ item.streak }}회</p>
+      {{ habit_metadata(item) }}
       <span class="sr-only">{{ '오늘 완료함' if item.completed else '오늘 미완료' }}</span>
     </div>
   </a>
@@ -16,7 +17,7 @@
     method="post"
     action="/habits/{{ item.habit.id }}/completions/{{ local_date.isoformat() }}"
     hx-post="/habits/{{ item.habit.id }}/completions/{{ local_date.isoformat() }}"
-    hx-target="#habit-{{ item.habit.id }}"
+    hx-target="#today-habits"
     hx-swap="outerHTML"
     hx-disabled-elt="button"
   >

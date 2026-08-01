@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import time, timedelta
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -48,6 +48,66 @@ def test_create_habit_and_show_it_on_today(client: TestClient) -> None:
         schedule = db.scalar(select(HabitSchedule).where(HabitSchedule.habit_id == habit_id))
         assert schedule is not None
         assert schedule.effective_from == current_local_date(db)
+
+
+def test_today_orders_incomplete_habits_by_time_and_reranks_after_completion(
+    client: TestClient,
+) -> None:
+    login(client)
+    token = csrf_token(client)
+    database = client_database(client)
+    habit_ids: dict[str, int] = {}
+    with database.session_factory() as db:
+        today = current_local_date(db)
+        specs = (
+            ("늦은 미완료", time(13, 0), False),
+            ("빠른 미완료", time(8, 0), False),
+            ("시간 없음", None, False),
+            ("완료 습관", time(7, 0), True),
+        )
+        for name, reminder_time, completed in specs:
+            habit = Habit(name=name, emoji="", background_preset="dawn")
+            db.add(habit)
+            db.flush()
+            habit_ids[name] = habit.id
+            db.add(
+                HabitSchedule(
+                    habit=habit,
+                    weekdays_mask=127,
+                    effective_from=today - timedelta(days=7),
+                )
+            )
+            if reminder_time is not None:
+                db.add(
+                    Reminder(
+                        habit=habit,
+                        weekdays_mask=127,
+                        local_time=reminder_time,
+                        timezone="Asia/Seoul",
+                        is_enabled=True,
+                    )
+                )
+            if completed:
+                db.add(HabitCompletion(habit=habit, local_date=today))
+        db.commit()
+
+    page = client.get("/today")
+    assert page.text.index("빠른 미완료") < page.text.index("늦은 미완료")
+    assert page.text.index("늦은 미완료") < page.text.index("시간 없음")
+    assert page.text.index("시간 없음") < page.text.index("완료 습관")
+    assert "매일" in page.text
+    assert "8:00 AM" in page.text
+
+    response = client.post(
+        f"/habits/{habit_ids['빠른 미완료']}/completions/{today.isoformat()}",
+        data={"completed": "true", "csrf_token": token},
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 200
+    assert 'id="today-habits"' in response.text
+    assert response.text.index("늦은 미완료") < response.text.index("시간 없음")
+    assert response.text.index("시간 없음") < response.text.index("완료 습관")
+    assert response.text.index("완료 습관") < response.text.index("빠른 미완료")
 
 
 def test_habit_detail_collects_management_actions(client: TestClient) -> None:

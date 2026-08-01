@@ -1,0 +1,17 @@
+{% macro habit_metadata(item) -%}
+  <p class="habit-metadata">
+    <span>연속 {{ item.streak }}회</span>
+    <span aria-hidden="true">·</span>
+    <span>{{ item.schedule_label }}</span>
+    {% if item.reminder_time_label %}
+      <span aria-hidden="true">·</span>
+      <span class="reminder-time">
+        {% if item.reminder_enabled %}
+          <svg class="reminder-clock" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+          <span class="sr-only">알림 켜짐</span>
+        {% endif %}
+        {{ item.reminder_time_label }}
+      </span>
+    {% endif %}
+  </p>
+{%- endmacro %}

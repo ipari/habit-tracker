@@ -11,13 +11,14 @@ from app.auth.dependencies import CurrentIdentity, DbSession
 from app.db.models import Habit, Reminder
 from app.domain.schedules import WEEKDAY_LABELS, mask_to_weekdays, weekdays_to_mask
 from app.habits.service import (
-    TodayHabit,
     application_timezone,
+    compact_schedule_label,
     current_local_date,
     effective_schedule,
     habit_streak,
     set_completion,
     today_habits,
+    twelve_hour_time_label,
     update_reminder,
     update_schedule,
 )
@@ -65,22 +66,6 @@ def normalize_return_to(value: str | None) -> str:
 
 def return_path(value: str | None) -> str:
     return "/today" if normalize_return_to(value) == "today" else "/habits"
-
-
-def compact_schedule_label(weekdays: tuple[int, ...]) -> str:
-    if weekdays == tuple(range(7)):
-        return "매일"
-    if weekdays == tuple(range(5)):
-        return "주중"
-    if weekdays == (5, 6):
-        return "주말"
-    return "·".join(WEEKDAY_LABELS[weekday] for weekday in weekdays)
-
-
-def twelve_hour_time_label(local_time: time) -> str:
-    display_hour = local_time.hour % 12 or 12
-    period = "AM" if local_time.hour < 12 else "PM"
-    return f"{display_hour}:{local_time.minute:02d} {period}"
 
 
 def habit_list_item(db: DbSession, habit: Habit, local_date: date) -> HabitListItem:
@@ -522,14 +507,9 @@ def change_completion(
             )
         return RedirectResponse("/today?save_error=1", status_code=303)
     if request.headers.get("HX-Request") == "true" and local_date == today:
-        item = TodayHabit(
-            habit=habit,
-            completed=completed,
-            streak=habit_streak(db, habit.id, today),
-        )
         return render_template(
             request,
-            "habits/_today_card.html",
-            {"item": item, "local_date": today},
+            "habits/_today_list.html",
+            {"habits": today_habits(db, today), "local_date": today},
         )
     return RedirectResponse("/today", status_code=status.HTTP_303_SEE_OTHER)
