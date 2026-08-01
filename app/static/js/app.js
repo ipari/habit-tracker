@@ -52,9 +52,9 @@ const notificationMessage = document.querySelector("#notification-permission-mes
 const notificationAllow = document.querySelector("[data-notification-allow]");
 const notificationLater = document.querySelector("[data-notification-later]");
 const notificationOpen = document.querySelector("[data-notification-open]");
+const notificationDisconnect = document.querySelector("[data-notification-disconnect]");
 const notificationPermissionStatus = document.querySelector("#notification-permission-status");
 const NOTIFICATION_PROMPT_KEY = "habit-tracker.notification-prompted-v1";
-const PUSH_CONNECTION_KEY = "habit-tracker.push-public-key-v1";
 const DEFAULT_NOTIFICATION_MESSAGE = "설정한 시간에 습관을 잊지 않도록 알려드릴게요.";
 
 function isInstalledApp() {
@@ -85,22 +85,6 @@ function rememberNotificationPrompt() {
     window.localStorage.setItem(NOTIFICATION_PROMPT_KEY, "true");
   } catch {
     // The permission flow still works when private browsing blocks storage.
-  }
-}
-
-function savedPushPublicKey() {
-  try {
-    return window.localStorage.getItem(PUSH_CONNECTION_KEY) || "";
-  } catch {
-    return "";
-  }
-}
-
-function rememberPushConnection(publicKey) {
-  try {
-    window.localStorage.setItem(PUSH_CONNECTION_KEY, publicKey);
-  } catch {
-    // The server still has the subscription when storage is unavailable.
   }
 }
 
@@ -182,10 +166,51 @@ async function connectPushSubscription(config) {
   if (!response.ok) {
     throw new Error("기기 알림 정보를 서버에 저장하지 못했습니다.");
   }
-  rememberPushConnection(config.publicKey);
+}
+
+async function matchingPushSubscription(config) {
+  if (!config.configured || !config.publicKey) {
+    return null;
+  }
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+  if (
+    subscription &&
+    arrayBufferToBase64url(subscription.options.applicationServerKey) === config.publicKey
+  ) {
+    return subscription;
+  }
+  return null;
+}
+
+async function disconnectPushSubscription() {
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    return;
+  }
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
+  const response = await window.fetch("/api/push/subscriptions", {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-Token": csrfToken,
+    },
+    body: JSON.stringify({ endpoint: subscription.endpoint }),
+  });
+  if (!response.ok) {
+    throw new Error("기기 알림 연결을 서버에서 해제하지 못했습니다.");
+  }
+  const unsubscribed = await subscription.unsubscribe();
+  if (!unsubscribed) {
+    throw new Error("브라우저의 알림 연결을 해제하지 못했습니다.");
+  }
 }
 
 async function updateNotificationPermissionStatus() {
+  if (notificationDisconnect) {
+    notificationDisconnect.hidden = true;
+  }
   if (!notificationPermissionStatus) {
     return;
   }
@@ -197,8 +222,11 @@ async function updateNotificationPermissionStatus() {
       const config = await loadPushConfig();
       if (!config.configured || !config.publicKey) {
         notificationPermissionStatus.textContent = "서버 설정 필요";
-      } else if (savedPushPublicKey() === config.publicKey) {
+      } else if (await matchingPushSubscription(config)) {
         notificationPermissionStatus.textContent = "연결됨";
+        if (notificationDisconnect) {
+          notificationDisconnect.hidden = false;
+        }
       } else {
         notificationPermissionStatus.textContent = "허용됨 · 연결 필요";
       }
@@ -234,7 +262,7 @@ async function maybeShowNotificationPrompt() {
   if (window.Notification.permission === "granted") {
     try {
       const config = await loadPushConfig();
-      if (config.configured && savedPushPublicKey() === config.publicKey) {
+      if (await matchingPushSubscription(config)) {
         rememberNotificationPrompt();
         return;
       }
@@ -315,6 +343,23 @@ notificationAllow?.addEventListener("click", async () => {
     notificationAllow.textContent = window.Notification.permission === "granted" ? "다시 연결" : "다시 시도";
     notificationAllow.disabled = false;
     notificationAllow.focus();
+  }
+});
+
+notificationDisconnect?.addEventListener("click", async () => {
+  notificationDisconnect.disabled = true;
+  try {
+    await disconnectPushSubscription();
+    await updateNotificationPermissionStatus();
+    showNotificationResult("이 기기의 예약 알림 연결을 해제했습니다. 브라우저의 알림 권한은 그대로 유지됩니다.");
+  } catch (error) {
+    showNotificationResult(
+      error instanceof Error && error.message
+        ? error.message
+        : "기기 알림 연결을 해제하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    );
+  } finally {
+    notificationDisconnect.disabled = false;
   }
 });
 

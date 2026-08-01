@@ -99,6 +99,13 @@ def save_subscription(
 class UnsubscribePayload(BaseModel):
     endpoint: str = Field(min_length=1, max_length=2048)
 
+    @field_validator("endpoint")
+    @classmethod
+    def validate_endpoint(cls, value: str) -> str:
+        if not value.startswith("https://"):
+            raise ValueError("Push endpoint must use HTTPS")
+        return value
+
 
 @router.delete("/subscriptions")
 def disable_subscription(
@@ -113,5 +120,11 @@ def disable_subscription(
     )
     if subscription is not None:
         subscription.is_active = False
-        db.commit()
+        try:
+            db.commit()
+        except SQLAlchemyError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=503, detail="Could not disable push subscription"
+            ) from exc
     return {"status": "unsubscribed"}

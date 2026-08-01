@@ -199,10 +199,18 @@ legend { margin-bottom: .65rem; font-weight: 700; }
 .tab-item.active { color: #007aff; }
 .section-title { margin: 0 0 .5rem .9rem; color: #6e6e73; font-size: .8rem; font-weight: 500; text-transform: uppercase; }
 .settings-group { margin-bottom: 1.5rem; }
+.settings-form { padding: .85rem 1rem; border-bottom: .5px solid #d1d1d6; border-radius: .85rem .85rem 0 0; background: #fff; }
+.settings-form label { display: block; margin-bottom: .45rem; font-weight: 600; }
+.settings-inline-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .6rem; }
+.settings-inline-control input { min-width: 0; }
+.settings-inline-control button { align-self: stretch; }
+.settings-inline-error, .settings-inline-success { margin: .45rem 0 0; font-size: .82rem; }
+.settings-inline-error { color: #d70015; }
+.settings-inline-success { color: #236b43; }
 .settings-row { display: flex; min-height: 3.4rem; align-items: center; justify-content: space-between; gap: 1rem; padding: .7rem 1rem; border-bottom: .5px solid #d1d1d6; background: #fff; }
 .settings-row button { flex: 0 0 auto; }
-.settings-row:first-of-type { border-radius: .85rem .85rem 0 0; }
 .settings-row:last-child { border-bottom: 0; border-radius: 0 0 .85rem .85rem; }
+.settings-row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem; }
 .settings-value { overflow-wrap: anywhere; color: #6e6e73; text-align: right; }
 .settings-action { margin: 0; }
 .settings-button { width: 100%; min-height: 3.4rem; border-radius: .85rem; background: #fff; color: #ff3b30; font-weight: 500; }
@@ -215,7 +223,8 @@ legend { margin-bottom: .65rem; font-weight: 700; }
   .tab-bar { border-color: #38383a; background: rgb(28 28 30 / 90%); }
   .tab-item { color: #8e8e93; }
   .tab-item.active { color: #0a84ff; }
-  .settings-row, .settings-button { border-color: #38383a; background: #1c1c1e; }
+  .settings-form, .settings-row, .settings-button { border-color: #38383a; background: #1c1c1e; }
+  .settings-inline-success { color: #62c47b; }
   .settings-button:hover { background: #1c1c1e; }
   .edit-link, .back-link { color: #0a84ff; }
   .calendar-day.selected { border-color: #0a84ff; }
@@ -468,7 +477,7 @@ input {
   .calendar-day.state-future { color: #777; }
   .legend-dot.complete { background: #eee; }
   .legend-dot.partial { background: #777; }
-  .settings-row, .settings-button { background: var(--threads-surface); }
+  .settings-form, .settings-row, .settings-button { background: var(--threads-surface); }
   .settings-button { color: #ff6961; }
   .tab-bar {
     border-color: rgb(255 255 255 / 16%);

@@ -117,6 +117,38 @@ def test_subscription_payload_rejects_insecure_endpoint(push_client: TestClient)
     assert response.status_code == 422
 
 
+def test_current_device_subscription_can_be_disabled(push_client: TestClient) -> None:
+    login(push_client)
+    token = csrf_token(push_client)
+    payload = subscription_payload()
+    push_client.post(
+        "/api/push/subscriptions",
+        json=payload,
+        headers={"X-CSRF-Token": token},
+    )
+    endpoint = payload["endpoint"]
+
+    missing_csrf = push_client.request(
+        "DELETE", "/api/push/subscriptions", json={"endpoint": endpoint}
+    )
+    assert missing_csrf.status_code == 403
+
+    response = push_client.request(
+        "DELETE",
+        "/api/push/subscriptions",
+        json={"endpoint": endpoint},
+        headers={"X-CSRF-Token": token},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "unsubscribed"}
+    app = cast(FastAPI, push_client.app)
+    with app.state.database.session_factory() as db:
+        subscription = db.scalar(select(PushSubscription))
+        assert subscription is not None
+        assert subscription.is_active is False
+
+
 def test_partial_vapid_configuration_is_rejected(password_hash: str) -> None:
     settings = Settings(
         _env_file=None,

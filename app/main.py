@@ -3,20 +3,18 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 
-from app.auth.dependencies import CurrentIdentity, DbSession
 from app.auth.routes import router as auth_router
 from app.calendar.routes import router as calendar_router
 from app.config import Settings, get_settings
-from app.db.models import AppSettings
 from app.db.session import create_database
 from app.habits.routes import router as habits_router
 from app.push.routes import router as push_router
-from app.web import render_template
+from app.settings.routes import router as settings_router
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -40,6 +38,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(habits_router)
     app.include_router(calendar_router)
     app.include_router(push_router)
+    app.include_router(settings_router)
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException) -> Response:
@@ -63,17 +62,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "Cache-Control": "no-cache",
                 "Service-Worker-Allowed": "/",
             },
-        )
-
-    @app.get("/settings", response_class=HTMLResponse)
-    def settings_page(
-        request: Request, db: DbSession, identity: CurrentIdentity
-    ) -> HTMLResponse:
-        app_settings = db.get(AppSettings, 1)
-        return render_template(
-            request,
-            "settings.html",
-            {"user": identity, "timezone": app_settings.timezone if app_settings else "UTC"},
         )
 
     @app.get("/health/live")
