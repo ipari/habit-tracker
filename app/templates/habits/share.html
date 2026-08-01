@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ habit.name }} 공유 · Habit Tracker{% endblock %}
+{% block content %}
+  <header class="form-header">
+    <a class="back-link" href="/today">‹ 오늘</a>
+    <h1>성과 공유</h1>
+    <p class="muted">현재 연속 달성 기록을 이미지로 저장하거나 공유하세요.</p>
+  </header>
+
+  <section
+    id="share-composer"
+    class="share-composer"
+    data-habit-name="{{ habit.name }}"
+    data-habit-emoji="{{ share_emoji }}"
+    data-streak="{{ streak }}"
+    data-preset="{{ habit.background_preset }}"
+  >
+    <div class="share-preview-frame" aria-busy="true">
+      <canvas
+        id="share-canvas"
+        width="1080"
+        height="1920"
+        role="img"
+        aria-label="{{ habit.name }}, 연속 {{ streak }}회 달성 공유 이미지 미리보기"
+      ></canvas>
+    </div>
+    <p id="share-status" class="share-status" role="status" aria-live="polite">이미지를 준비하고 있습니다.</p>
+    <div class="share-actions">
+      <button id="share-image" type="button" disabled>시스템으로 공유</button>
+      <button id="download-image" class="secondary" type="button" disabled>PNG 다운로드</button>
+    </div>
+    <p class="field-help share-help">공유 이미지는 1080×1920 PNG이며 계정 정보나 서비스 주소를 포함하지 않습니다.</p>
+  </section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='/js/share.js') }}"></script>{% endblock %}
+{% block tabbar %}{% include "_tab_bar.html" %}{% endblock %}

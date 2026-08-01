@@ -50,6 +50,8 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .habit-card { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; padding: 1rem; border: 1px solid #d7ded8; border-radius: 1rem; background: #fff; }
 .habit-card.completed { background: #eaf6ed; border-color: #86ad91; }
 .habit-card form { margin: 0; }
+.habit-card-actions, .management-actions { display: flex; align-items: center; gap: .4rem; }
+.share-link { color: #007aff; }
 .habit-toggle { display: grid; width: 3rem; min-height: 3rem; padding: 0; place-items: center; border: 2px solid #6d7b71; border-radius: 50%; background: transparent; color: #fff; }
 .habit-toggle[aria-pressed="true"] { border-color: #236b43; background: #236b43; }
 .checkmark { font-size: 1.4rem; line-height: 1; }
@@ -132,6 +134,13 @@ legend { margin-bottom: .65rem; font-weight: 700; }
 .calendar-habit-card form { margin: 0; }
 .compact-empty { padding-block: 1.5rem; }
 .htmx-request { opacity: .65; }
+.share-composer { display: grid; gap: 1rem; }
+.share-preview-frame { width: min(100%, 22rem); margin: 0 auto; overflow: hidden; border-radius: 1.4rem; background: #e9e9eb; box-shadow: 0 1rem 3rem rgb(0 0 0 / 18%); }
+.share-preview-frame canvas { display: block; width: 100%; height: auto; aspect-ratio: 9 / 16; }
+.share-status { min-height: 1.5rem; margin: 0; color: #58645c; text-align: center; }
+.share-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.share-actions button:disabled { cursor: progress; opacity: .55; }
+.share-help { margin-top: 0; text-align: center; }
 
 @media (prefers-color-scheme: dark) {
   :root { color: #edf4ee; background: #111713; }
@@ -211,6 +220,8 @@ legend { margin-bottom: .65rem; font-weight: 700; }
   .edit-link, .back-link { color: #0a84ff; }
   .calendar-day.selected { border-color: #0a84ff; }
   .month-button { background: #2c2c2e; color: #0a84ff; }
+  .share-preview-frame { background: #2c2c2e; }
+  .share-status { color: #aeaeb2; }
 }
 
 /* Threads-inspired monochrome content with a Liquid Glass navigation layer */

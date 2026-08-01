@@ -110,7 +110,7 @@ def test_reminder_form_shows_saved_values_and_timezone(client: TestClient) -> No
     assert 'name="reminder_time" type="time" required value="09:00"' in response.text
     assert "기준 시간대:" in response.text
     assert "Asia/Seoul" in response.text
-    assert "현재는 알림 설정만 저장됩니다." in response.text
+    assert "이 기기의 알림 연결도 완료" in response.text
     assert "알림은 항상 위에서 선택한 수행 요일" in response.text
     assert "수행 요일과 동일" not in response.text
     assert 'name="reminder_weekdays"' not in response.text

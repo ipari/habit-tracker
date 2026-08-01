@@ -14,9 +14,14 @@
             <h2>{{ habit.name }}</h2>
             <p class="muted status-label">{{ '보관됨' if habit.archived_at else '활성' }}</p>
           </div>
-          <a class="icon-button edit-link" href="/habits/{{ habit.id }}/edit" aria-label="{{ habit.name }} 편집">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5.5 4 4M4 20l3.7-.8L19 7.9a1.4 1.4 0 0 0 0-2l-.9-.9a1.4 1.4 0 0 0-2 0L4.8 16.3 4 20Z"/></svg>
-          </a>
+          <div class="management-actions">
+            <a class="icon-button share-link" href="/habits/{{ habit.id }}/share" aria-label="{{ habit.name }} 성과 공유">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m0 0L7.5 7.5M12 3l4.5 4.5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+            </a>
+            <a class="icon-button edit-link" href="/habits/{{ habit.id }}/edit" aria-label="{{ habit.name }} 편집">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5.5 4 4M4 20l3.7-.8L19 7.9a1.4 1.4 0 0 0 0-2l-.9-.9a1.4 1.4 0 0 0-2 0L4.8 16.3 4 20Z"/></svg>
+            </a>
+          </div>
         </article>
       {% endfor %}
     </section>

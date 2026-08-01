@@ -59,6 +59,7 @@ def test_installed_app_offers_notification_permission_after_user_action(
     assert 'self.addEventListener("push"' in worker.text
     assert "showNotification" in worker.text
     assert 'self.addEventListener("notificationclick"' in worker.text
+    assert '"/static/js/share.js"' in worker.text
 
     settings = client.get("/settings")
     assert 'data-notification-open' in settings.text

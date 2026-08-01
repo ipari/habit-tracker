@@ -254,6 +254,23 @@ def edit_habit(
     )
 
 
+@router.get("/habits/{habit_id}/share", response_class=HTMLResponse)
+def share_habit(
+    habit_id: int, request: Request, db: DbSession, _identity: CurrentIdentity
+) -> HTMLResponse:
+    habit = habit_or_404(db, habit_id)
+    local_date = current_local_date(db)
+    return render_template(
+        request,
+        "habits/share.html",
+        {
+            "habit": habit,
+            "share_emoji": habit.emoji or "✨",
+            "streak": habit_streak(db, habit.id, local_date),
+        },
+    )
+
+
 @router.post("/habits/{habit_id}", response_class=HTMLResponse)
 def save_habit(
     habit_id: int,

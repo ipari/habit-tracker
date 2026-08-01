@@ -12,23 +12,28 @@
       <span class="sr-only">{{ '오늘 완료함' if item.completed else '오늘 미완료' }}</span>
     </div>
   </div>
-  <form
-    method="post"
-    action="/habits/{{ item.habit.id }}/completions/{{ local_date.isoformat() }}"
-    hx-post="/habits/{{ item.habit.id }}/completions/{{ local_date.isoformat() }}"
-    hx-target="#habit-{{ item.habit.id }}"
-    hx-swap="outerHTML"
-    hx-disabled-elt="button"
-  >
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <input type="hidden" name="completed" value="{{ 'false' if item.completed else 'true' }}">
-    <button
-      class="habit-toggle"
-      type="submit"
-      aria-pressed="{{ 'true' if item.completed else 'false' }}"
-      aria-label="{{ item.habit.name }} {{ '완료 취소' if item.completed else '완료' }}"
+  <div class="habit-card-actions">
+    <a class="icon-button share-link" href="/habits/{{ item.habit.id }}/share" aria-label="{{ item.habit.name }} 성과 공유">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m0 0L7.5 7.5M12 3l4.5 4.5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+    </a>
+    <form
+      method="post"
+      action="/habits/{{ item.habit.id }}/completions/{{ local_date.isoformat() }}"
+      hx-post="/habits/{{ item.habit.id }}/completions/{{ local_date.isoformat() }}"
+      hx-target="#habit-{{ item.habit.id }}"
+      hx-swap="outerHTML"
+      hx-disabled-elt="button"
     >
-      <span class="checkmark" aria-hidden="true">{{ '✓' if item.completed else '' }}</span>
-    </button>
-  </form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="completed" value="{{ 'false' if item.completed else 'true' }}">
+      <button
+        class="habit-toggle"
+        type="submit"
+        aria-pressed="{{ 'true' if item.completed else 'false' }}"
+        aria-label="{{ item.habit.name }} {{ '완료 취소' if item.completed else '완료' }}"
+      >
+        <span class="checkmark" aria-hidden="true">{{ '✓' if item.completed else '' }}</span>
+      </button>
+    </form>
+  </div>
 </article>
