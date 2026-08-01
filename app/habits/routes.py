@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from typing import Annotated, Any
 
@@ -37,6 +38,15 @@ BACKGROUND_PRESETS = (
 )
 
 
+@dataclass(frozen=True)
+class HabitListItem:
+    habit: Habit
+    streak: int
+    schedule_label: str
+    reminder_time_label: str | None
+    reminder_enabled: bool
+
+
 def habit_or_404(db: DbSession, habit_id: int) -> Habit:
     habit = db.get(Habit, habit_id)
     if habit is None:
@@ -49,12 +59,52 @@ def date_label(local_date: date) -> str:
     return f"{local_date.year}년 {local_date.month}월 {local_date.day}일 {weekday}요일"
 
 
+def normalize_return_to(value: str | None) -> str:
+    return "today" if value == "today" else "habits"
+
+
+def return_path(value: str | None) -> str:
+    return "/today" if normalize_return_to(value) == "today" else "/habits"
+
+
+def compact_schedule_label(weekdays: tuple[int, ...]) -> str:
+    if weekdays == tuple(range(7)):
+        return "매일"
+    if weekdays == tuple(range(5)):
+        return "주중"
+    if weekdays == (5, 6):
+        return "주말"
+    return "·".join(WEEKDAY_LABELS[weekday] for weekday in weekdays)
+
+
+def twelve_hour_time_label(local_time: time) -> str:
+    display_hour = local_time.hour % 12 or 12
+    period = "AM" if local_time.hour < 12 else "PM"
+    return f"{display_hour}:{local_time.minute:02d} {period}"
+
+
+def habit_list_item(db: DbSession, habit: Habit, local_date: date) -> HabitListItem:
+    schedule = effective_schedule(db, habit.id, local_date)
+    weekdays = mask_to_weekdays(schedule.weekdays_mask) if schedule else ()
+    reminder = habit.reminder
+    return HabitListItem(
+        habit=habit,
+        streak=habit_streak(db, habit.id, local_date),
+        schedule_label=compact_schedule_label(weekdays),
+        reminder_time_label=(
+            twelve_hour_time_label(reminder.local_time) if reminder is not None else None
+        ),
+        reminder_enabled=reminder.is_enabled if reminder is not None else False,
+    )
+
+
 def form_context(
     *,
     habit: Habit | None = None,
     reminder: Reminder | None = None,
     selected_weekdays: tuple[int, ...] = tuple(range(7)),
     reminder_timezone: str = "UTC",
+    return_to: str = "habits",
     values: dict[str, Any] | None = None,
     error: str | None = None,
 ) -> dict[str, Any]:
@@ -69,6 +119,9 @@ def form_context(
         ),
         "reminder_time": resolved_values.get("reminder_time", reminder_time),
         "reminder_timezone": reminder.timezone if reminder else reminder_timezone,
+        "return_to": normalize_return_to(return_to),
+        "return_path": return_path(return_to),
+        "return_label": "오늘" if normalize_return_to(return_to) == "today" else "습관",
         "weekday_labels": WEEKDAY_LABELS,
         "background_presets": BACKGROUND_PRESETS,
         "values": resolved_values,
@@ -131,10 +184,26 @@ def today(request: Request, db: DbSession, identity: CurrentIdentity) -> HTMLRes
 def list_habits(
     request: Request, db: DbSession, _identity: CurrentIdentity
 ) -> HTMLResponse:
+    local_date = current_local_date(db)
     habits = db.scalars(
         select(Habit).order_by(Habit.archived_at.is_not(None), Habit.created_at, Habit.id)
     ).all()
-    return render_template(request, "habits/index.html", {"habits": habits})
+    active_habits: list[HabitListItem] = []
+    archived_habits: list[HabitListItem] = []
+    for habit in habits:
+        item = habit_list_item(db, habit, local_date)
+        if habit.archived_at is None:
+            active_habits.append(item)
+        else:
+            archived_habits.append(item)
+    return render_template(
+        request,
+        "habits/index.html",
+        {
+            "active_habits": active_habits,
+            "archived_habits": archived_habits,
+        },
+    )
 
 
 @router.get("/habits/new", response_class=HTMLResponse)
@@ -145,6 +214,39 @@ def new_habit(
         request,
         "habits/form.html",
         form_context(reminder_timezone=str(application_timezone(db))),
+    )
+
+
+@router.get("/habits/{habit_id}", response_class=HTMLResponse)
+def habit_detail(
+    habit_id: int, request: Request, db: DbSession, _identity: CurrentIdentity
+) -> HTMLResponse:
+    habit = habit_or_404(db, habit_id)
+    local_date = current_local_date(db)
+    schedule = effective_schedule(db, habit.id, local_date)
+    weekdays = mask_to_weekdays(schedule.weekdays_mask) if schedule else ()
+    schedule_label = (
+        "매일"
+        if len(weekdays) == 7
+        else " · ".join(f"{WEEKDAY_LABELS[weekday]}요일" for weekday in weekdays)
+    )
+    reminder = habit.reminder
+    origin = normalize_return_to(request.query_params.get("from"))
+    reminder_label = "사용 안 함"
+    if reminder is not None and reminder.is_enabled:
+        reminder_label = f"{reminder.local_time.strftime('%H:%M')} · {reminder.timezone}"
+    return render_template(
+        request,
+        "habits/detail.html",
+        {
+            "habit": habit,
+            "streak": habit_streak(db, habit.id, local_date),
+            "schedule_label": schedule_label,
+            "reminder_label": reminder_label,
+            "return_to": origin,
+            "return_path": return_path(origin),
+            "return_label": "오늘" if origin == "today" else "습관",
+        },
     )
 
 
@@ -242,6 +344,7 @@ def edit_habit(
     schedule = effective_schedule(db, habit.id, local_date)
     selected = mask_to_weekdays(schedule.weekdays_mask) if schedule else ()
     reminder = habit.reminder
+    origin = normalize_return_to(request.query_params.get("from"))
     return render_template(
         request,
         "habits/form.html",
@@ -250,6 +353,7 @@ def edit_habit(
             reminder=reminder,
             selected_weekdays=selected,
             reminder_timezone=str(application_timezone(db)),
+            return_to=origin,
         ),
     )
 
@@ -260,6 +364,7 @@ def share_habit(
 ) -> HTMLResponse:
     habit = habit_or_404(db, habit_id)
     local_date = current_local_date(db)
+    origin = normalize_return_to(request.query_params.get("from"))
     return render_template(
         request,
         "habits/share.html",
@@ -267,6 +372,7 @@ def share_habit(
             "habit": habit,
             "share_emoji": habit.emoji or "✨",
             "streak": habit_streak(db, habit.id, local_date),
+            "return_to": origin,
         },
     )
 
@@ -284,11 +390,13 @@ def save_habit(
     weekdays: Annotated[list[int] | None, Form()] = None,
     reminder_enabled: Annotated[bool, Form()] = False,
     reminder_time: Annotated[str, Form(max_length=5)] = "09:00",
+    return_to: Annotated[str, Form(max_length=16)] = "habits",
 ) -> Response:
     habit = habit_or_404(db, habit_id)
     reminder = habit.reminder
     selected = tuple(weekdays or ())
     timezone = reminder.timezone if reminder else str(application_timezone(db))
+    origin = normalize_return_to(return_to)
     values = {
         "name": name,
         "emoji": emoji,
@@ -305,6 +413,7 @@ def save_habit(
                 reminder=reminder,
                 selected_weekdays=selected,
                 reminder_timezone=timezone,
+                return_to=origin,
                 values=values,
                 error="요청이 만료되었습니다.",
             ),
@@ -338,6 +447,7 @@ def save_habit(
                 reminder=reminder,
                 selected_weekdays=selected,
                 reminder_timezone=timezone,
+                return_to=origin,
                 values=values,
                 error=str(exc),
             ),
@@ -353,12 +463,13 @@ def save_habit(
                 reminder=reminder,
                 selected_weekdays=selected,
                 reminder_timezone=timezone,
+                return_to=origin,
                 values=values,
                 error="저장하지 못했습니다. 다시 시도해 주세요.",
             ),
             503,
         )
-    return RedirectResponse("/today", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(return_path(origin), status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/habits/{habit_id}/archive")
@@ -380,7 +491,7 @@ def archive_habit(
     except SQLAlchemyError:
         db.rollback()
         return HTMLResponse("보관하지 못했습니다. 다시 시도해 주세요.", status_code=503)
-    return RedirectResponse("/today", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(f"/habits/{habit.id}", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/habits/{habit_id}/completions/{local_date}")

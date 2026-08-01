@@ -3,7 +3,7 @@
 {% block title %}{{ '습관 편집' if is_edit else '새 습관' }} · Habit Tracker{% endblock %}
 {% block content %}
   <header class="form-header">
-    <a class="back-link" href="{{ '/habits' if is_edit else '/today' }}">‹ {{ '습관' if is_edit else '오늘' }}</a>
+    <a class="back-link" href="{{ return_path if is_edit else '/today' }}">‹ {{ return_label if is_edit else '오늘' }}</a>
     <h1>{{ '습관 편집' if is_edit else '새 습관' }}</h1>
     {% if is_edit %}<p class="muted">수행 요일 변경은 오늘부터 적용되고 과거 일정은 유지됩니다.</p>{% endif %}
   </header>
@@ -11,6 +11,7 @@
 
   <form class="card habit-form" method="post" action="{{ '/habits/' ~ habit.id if is_edit else '/habits' }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if is_edit %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
     <label for="name">습관 이름</label>
     <input id="name" name="name" required maxlength="80" value="{{ values.get('name', habit.name if habit else '') }}" placeholder="예: 물 8잔 마시기">
     <label for="emoji">이모지 <span class="optional-note">선택</span></label>
@@ -69,15 +70,7 @@
 
     <div class="form-actions">
       <button type="submit">저장</button>
-      <a class="button-link secondary" href="/today">취소</a>
+      <a class="button-link secondary" href="{{ return_path if is_edit else '/today' }}">취소</a>
     </div>
   </form>
-
-  {% if is_edit and habit.archived_at is none %}
-    <form class="archive-form" method="post" action="/habits/{{ habit.id }}/archive">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button class="danger-secondary" type="submit">습관 보관</button>
-      <p class="muted">과거 달성 기록과 일정은 삭제되지 않습니다.</p>
-    </form>
-{% endif %}
 {% endblock %}

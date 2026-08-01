@@ -8,7 +8,9 @@ def test_share_page_uses_current_streak_and_saved_preset(client: TestClient) -> 
     habit_id = create_habit(client)
     token = csrf_token(client)
     today_page = client.get("/today")
-    assert f'href="/habits/{habit_id}/share"' in today_page.text
+    assert f'href="/habits/{habit_id}/share"' not in today_page.text
+    detail_page = client.get(f"/habits/{habit_id}")
+    assert f'href="/habits/{habit_id}/share?from=habits"' in detail_page.text
 
     completion_path = today_page.text.split(
         f'action="/habits/{habit_id}/completions/', 1

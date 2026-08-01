@@ -2,7 +2,7 @@
 {% block title %}{{ habit.name }} 공유 · Habit Tracker{% endblock %}
 {% block content %}
   <header class="form-header">
-    <a class="back-link" href="/today">‹ 오늘</a>
+    <a class="back-link" href="/habits/{{ habit.id }}?from={{ return_to }}">‹ {{ habit.name }}</a>
     <h1>성과 공유</h1>
     <p class="muted">현재 연속 달성 기록을 이미지로 저장하거나 공유하세요.</p>
   </header>

@@ -40,11 +40,142 @@ def test_create_habit_and_show_it_on_today(client: TestClient) -> None:
     assert today_page.status_code == 200
     assert "물 마시기" in today_page.text
     assert "연속 0회" in today_page.text
+    assert f'href="/habits/{habit_id}?from=today"' in today_page.text
+    assert f'href="/habits/{habit_id}/edit"' not in today_page.text
+    assert f'href="/habits/{habit_id}/share"' not in today_page.text
 
     with client_database(client).session_factory() as db:
         schedule = db.scalar(select(HabitSchedule).where(HabitSchedule.habit_id == habit_id))
         assert schedule is not None
         assert schedule.effective_from == current_local_date(db)
+
+
+def test_habit_detail_collects_management_actions(client: TestClient) -> None:
+    habit_id = create_habit(client)
+
+    detail = client.get(f"/habits/{habit_id}")
+
+    assert detail.status_code == 200
+    assert "물 마시기" in detail.text
+    assert "<strong>0</strong>" in detail.text
+    assert "회 연속 달성" in detail.text
+    assert f'href="/habits/{habit_id}/share?from=habits"' in detail.text
+    assert f'href="/habits/{habit_id}/edit?from=habits"' in detail.text
+    assert f'action="/habits/{habit_id}/archive"' in detail.text
+
+    management = client.get("/habits")
+    assert f'href="/habits/{habit_id}?from=habits"' in management.text
+    assert f'href="/habits/{habit_id}/share"' not in management.text
+    assert f'href="/habits/{habit_id}/edit"' not in management.text
+
+
+def test_habit_list_summarizes_schedule_streak_and_reminder(client: TestClient) -> None:
+    habit_id = create_habit(client, weekdays=list(range(5)))
+    token = csrf_token(client)
+    response = client.post(
+        f"/habits/{habit_id}",
+        data={
+            "name": "물 마시기",
+            "emoji": "💧",
+            "background_preset": "ocean",
+            "weekdays": [str(day) for day in range(5)],
+            "reminder_enabled": "true",
+            "reminder_time": "13:00",
+            "return_to": "habits",
+            "csrf_token": token,
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+    response = client.post(
+        "/habits",
+        data={
+            "name": "주말 산책",
+            "emoji": "🚶",
+            "background_preset": "forest",
+            "weekdays": ["5", "6"],
+            "reminder_time": "09:00",
+            "csrf_token": token,
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+    with client_database(client).session_factory() as db:
+        today = current_local_date(db)
+        habit_without_time = Habit(
+            name="명상",
+            emoji="🧘",
+            background_preset="dawn",
+        )
+        db.add(habit_without_time)
+        db.flush()
+        db.add(
+            HabitSchedule(
+                habit=habit_without_time,
+                weekdays_mask=127,
+                effective_from=today,
+            )
+        )
+        db.commit()
+
+    page = client.get("/habits")
+    assert "<h1>습관들</h1>" in page.text
+    assert "연속 0회" in page.text
+    assert "주중" in page.text
+    assert "1:00 PM" in page.text
+    assert "9:00 AM" in page.text
+    assert "주말" in page.text
+    assert "알림 없음" not in page.text
+    assert page.text.count('class="reminder-clock"') == 1
+    assert "알림 켜짐" in page.text
+    habit_without_time_row = page.text.split("명상 상세 보기", 1)[1].split("</a>", 1)[0]
+    assert " AM" not in habit_without_time_row
+    assert " PM" not in habit_without_time_row
+    assert "reminder-clock" not in habit_without_time_row
+    assert ">활성<" not in page.text
+    assert "Asia/Seoul" not in page.text
+
+
+def test_edit_returns_to_the_page_it_was_opened_from(client: TestClient) -> None:
+    habit_id = create_habit(client)
+    token = csrf_token(client)
+    database = client_database(client)
+    with database.session_factory() as db:
+        today = current_local_date(db)
+
+    today_detail = client.get(f"/habits/{habit_id}?from=today")
+    assert 'class="back-link" href="/today"' in today_detail.text
+    assert f'href="/habits/{habit_id}/edit?from=today"' in today_detail.text
+
+    from_today = client.get(f"/habits/{habit_id}/edit?from=today")
+    assert 'class="back-link" href="/today"' in from_today.text
+    assert 'name="return_to" value="today"' in from_today.text
+
+    habits_detail = client.get(f"/habits/{habit_id}?from=habits")
+    assert 'class="back-link" href="/habits"' in habits_detail.text
+    assert f'href="/habits/{habit_id}/edit?from=habits"' in habits_detail.text
+
+    from_habits = client.get(f"/habits/{habit_id}/edit?from=habits")
+    assert 'class="back-link" href="/habits"' in from_habits.text
+    assert 'name="return_to" value="habits"' in from_habits.text
+
+    response = client.post(
+        f"/habits/{habit_id}",
+        data={
+            "name": "물 마시기",
+            "emoji": "💧",
+            "background_preset": "ocean",
+            "weekdays": [str(today.weekday())],
+            "reminder_time": "09:00",
+            "return_to": "today",
+            "csrf_token": token,
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["location"] == "/today"
 
 
 def test_completion_set_and_unset_are_idempotent(client: TestClient) -> None:
@@ -63,6 +194,9 @@ def test_completion_set_and_unset_are_idempotent(client: TestClient) -> None:
         )
         assert response.status_code == 200
         assert "연속 1회" in response.text
+        assert 'class="habit-toggle"' in response.text
+        assert 'aria-pressed="true"' in response.text
+        assert "✓" in response.text
     with database.session_factory() as db:
         count = db.scalar(select(func.count()).select_from(HabitCompletion))
         assert count == 1
@@ -105,7 +239,10 @@ def test_archive_hides_habit_but_preserves_records(client: TestClient) -> None:
     assert "물 마시기" not in client.get("/today").text
     management_page = client.get("/habits")
     assert "물 마시기" in management_page.text
-    assert "보관됨" in management_page.text
+    assert '<details class="past-habits">' in management_page.text
+    assert "지난 습관들" in management_page.text
+    assert "보관됨" not in management_page.text
+    assert management_page.text.index("past-habits") < management_page.text.index("물 마시기")
     with database.session_factory() as db:
         habit = db.get(Habit, habit_id)
         assert habit is not None
@@ -185,3 +322,4 @@ def test_settings_requires_authentication(client: TestClient) -> None:
 def test_habit_pages_require_authentication(client: TestClient) -> None:
     assert client.get("/habits").status_code == 401
     assert client.get("/habits/new").status_code == 401
+    assert client.get("/habits/1").status_code == 401

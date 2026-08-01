@@ -1,33 +1,45 @@
 {% extends "base.html" %}
 {% from "_habit_icon.html" import habit_icon %}
-{% block title %}습관 · Habit Tracker{% endblock %}
+{% macro habit_row(item) -%}
+  <article class="management-card">
+    <a class="management-card-link" href="/habits/{{ item.habit.id }}?from=habits" aria-label="{{ item.habit.name }} 상세 보기">
+      {{ habit_icon(item.habit.emoji) }}
+      <div class="management-card-copy">
+        <h2>{{ item.habit.name }}</h2>
+        <p class="habit-metadata">
+          <span>연속 {{ item.streak }}회</span>
+          <span aria-hidden="true">·</span>
+          <span>{{ item.schedule_label }}</span>
+          {% if item.reminder_time_label %}
+            <span aria-hidden="true">·</span>
+            <span class="reminder-time">
+              {% if item.reminder_enabled %}
+                <svg class="reminder-clock" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+                <span class="sr-only">알림 켜짐</span>
+              {% endif %}
+              {{ item.reminder_time_label }}
+            </span>
+          {% endif %}
+        </p>
+      </div>
+      <svg class="row-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+    </a>
+  </article>
+{%- endmacro %}
+{% block title %}습관들 · Habit Tracker{% endblock %}
 {% block content %}
   <header class="app-header">
-    <h1>습관</h1>
+    <h1>습관들</h1>
   </header>
-  {% if habits %}
-    <section class="management-list" aria-label="전체 습관">
-      {% for habit in habits %}
-        <article class="management-card{% if habit.archived_at %} archived{% endif %}">
-          {{ habit_icon(habit.emoji) }}
-          <div>
-            <h2>{{ habit.name }}</h2>
-            <p class="muted status-label">{{ '보관됨' if habit.archived_at else '활성' }}</p>
-          </div>
-          <div class="management-actions">
-            <a class="icon-button share-link" href="/habits/{{ habit.id }}/share" aria-label="{{ habit.name }} 성과 공유">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m0 0L7.5 7.5M12 3l4.5 4.5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
-            </a>
-            <a class="icon-button edit-link" href="/habits/{{ habit.id }}/edit" aria-label="{{ habit.name }} 편집">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5.5 4 4M4 20l3.7-.8L19 7.9a1.4 1.4 0 0 0 0-2l-.9-.9a1.4 1.4 0 0 0-2 0L4.8 16.3 4 20Z"/></svg>
-            </a>
-          </div>
-        </article>
+  {% if active_habits %}
+    <section class="management-list" aria-label="진행 중인 습관">
+      {% for item in active_habits %}
+        {{ habit_row(item) }}
       {% endfor %}
     </section>
   {% else %}
     <section class="card empty">
-      <h2>아직 만든 습관이 없어요</h2>
+      <h2>진행 중인 습관이 없어요</h2>
       <p class="muted">첫 습관을 추가해 보세요.</p>
     </section>
   {% endif %}
@@ -35,5 +47,19 @@
     <span class="add-habit-icon" aria-hidden="true">+</span>
     <span>새 습관 추가</span>
   </a>
+  {% if archived_habits %}
+    <details class="past-habits">
+      <summary>
+        <span>지난 습관들</span>
+        <span class="past-habit-count">{{ archived_habits|length }}</span>
+        <svg class="past-habit-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
+      </summary>
+      <section class="management-list past-habit-list" aria-label="지난 습관들">
+        {% for item in archived_habits %}
+          {{ habit_row(item) }}
+        {% endfor %}
+      </section>
+    </details>
+  {% endif %}
 {% endblock %}
 {% block tabbar %}{% include "_tab_bar.html" %}{% endblock %}
