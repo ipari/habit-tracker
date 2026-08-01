@@ -119,12 +119,15 @@ def test_calendar_records_an_unscheduled_habit_from_the_additional_section(
     page = client.get(f"/calendar?month={month}&selected={today.isoformat()}")
     assert "이 날짜에 예정된 습관이 없어요." in page.text
     assert "다른 습관 기록" in page.text
+    assert '<svg class="add-habit-icon" viewBox="0 0 24 24" aria-hidden="true">' in page.text
+    assert '<path d="M12 7v10M7 12h10"' in page.text
     assert 'aria-label="수영 추가 달성 기록"' in page.text
     additional_button = page.text.split(
         'aria-label="수영 추가 달성 기록"', 1
     )[0].rsplit("<button", 1)[1]
     assert 'class="habit-toggle calendar-habit-toggle"' in additional_button
     assert 'aria-pressed="false"' in additional_button
+    assert '<span class="checkmark" aria-hidden="true">✓</span>' in page.text
 
     response = client.post(
         f"/calendar/habits/{habit_id}/completions/{today.isoformat()}",

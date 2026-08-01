@@ -95,7 +95,7 @@
                   type="submit"
                   aria-pressed="{{ 'true' if item.completed else 'false' }}"
                   aria-label="{{ item.habit.name }} {{ '완료 취소' if item.completed else '완료로 기록' }}"
-                ><span class="checkmark" aria-hidden="true">{{ '✓' if item.completed else '' }}</span></button>
+                ><span class="checkmark" aria-hidden="true">✓</span></button>
               </form>
             {% endif %}
           </article>
@@ -110,7 +110,9 @@
     {% if calendar.additional_habits %}
       <details class="additional-habits">
         <summary>
-          <span class="add-habit-icon" aria-hidden="true">+</span>
+          <svg class="add-habit-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 7v10M7 12h10"/>
+          </svg>
           <span>다른 습관 기록</span>
           <svg class="additional-habits-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
         </summary>
@@ -141,7 +143,7 @@
                   aria-pressed="false"
                   aria-label="{{ item.habit.name }} 추가 달성 기록"
                 >
-                  <span class="checkmark" aria-hidden="true"></span>
+                  <span class="checkmark" aria-hidden="true">✓</span>
                 </button>
               </form>
             </article>
