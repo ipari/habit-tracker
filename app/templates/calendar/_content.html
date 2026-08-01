@@ -1,0 +1,109 @@
+<div id="calendar-content">
+  <section class="calendar-card" aria-labelledby="calendar-month-label">
+    <header class="calendar-nav">
+      <a
+        class="month-button"
+        href="/calendar?month={{ calendar.previous_month.strftime('%Y-%m') }}"
+        hx-get="/calendar?month={{ calendar.previous_month.strftime('%Y-%m') }}"
+        hx-target="#calendar-content"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        aria-label="이전 달"
+      >←</a>
+      <h2 id="calendar-month-label">{{ calendar.month_label }}</h2>
+      <a
+        class="month-button"
+        href="/calendar?month={{ calendar.next_month.strftime('%Y-%m') }}"
+        hx-get="/calendar?month={{ calendar.next_month.strftime('%Y-%m') }}"
+        hx-target="#calendar-content"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        aria-label="다음 달"
+      >→</a>
+    </header>
+
+    <div class="calendar-grid weekday-header" role="row">
+      {% for weekday in weekday_headers %}<span role="columnheader">{{ weekday }}</span>{% endfor %}
+    </div>
+    <div class="calendar-weeks" role="grid" aria-labelledby="calendar-month-label">
+      {% for week in calendar.weeks %}
+        <div class="calendar-grid" role="row">
+          {% for day in week %}
+            <div role="gridcell">
+              <a
+                class="calendar-day state-{{ day.state }}{% if not day.in_month %} outside-month{% endif %}{% if day.is_selected %} selected{% endif %}"
+                data-calendar-day
+                href="/calendar?month={{ day.local_date.strftime('%Y-%m') }}&selected={{ day.local_date.isoformat() }}"
+                hx-get="/calendar?month={{ day.local_date.strftime('%Y-%m') }}&selected={{ day.local_date.isoformat() }}"
+                hx-target="#calendar-content"
+                hx-swap="outerHTML"
+                hx-push-url="true"
+                {% if day.is_today %}aria-current="date"{% endif %}
+                aria-label="{{ day.local_date.month }}월 {{ day.local_date.day }}일, {{ day.status_text }}{% if day.is_selected %}, 선택됨{% endif %}"
+              >
+                <span class="day-number">{{ day.local_date.day }}</span>
+                <span class="day-summary" aria-hidden="true">
+                  {% if day.is_future and day.scheduled_count %}<i class="future-schedule-indicator"></i>{% elif not day.is_today and day.scheduled_count %}{{ day.completed_count }}/{{ day.scheduled_count }}{% endif %}
+                  {% if day.extra_count %}+{{ day.extra_count }}{% endif %}
+                </span>
+              </a>
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+    <div class="calendar-legend" aria-label="달력 상태 범례">
+      <span><i class="legend-dot complete"></i>모두 달성</span>
+      <span><i class="legend-dot partial"></i>일부·추가 달성</span>
+      <span><i class="legend-dot missed"></i>지난 예정일 미달성</span>
+      <span><i class="legend-dot future"></i>앞으로의 예정일</span>
+    </div>
+  </section>
+
+  <div id="calendar-sync-error" class="error-slot" role="alert" aria-live="assertive">{% if save_error %}저장하지 못했습니다. 다시 시도해 주세요.{% endif %}</div>
+
+  <section class="selected-day" aria-labelledby="selected-day-label">
+    <header class="selected-day-header">
+      <h2 id="selected-day-label">{{ calendar.selected_label }}</h2>
+    </header>
+
+    {% if calendar.habits %}
+      <div class="calendar-habit-list">
+        {% for item in calendar.habits %}
+          <article class="calendar-habit-card{% if item.completed %} completed{% endif %}">
+            {% from "_habit_icon.html" import habit_icon %}
+            {{ habit_icon(item.habit.emoji) }}
+            <div class="calendar-habit-content">
+              <h3>{{ item.habit.name }}</h3>
+              <p class="muted historical-streak">현재 연속 {{ item.streak }}회</p>
+            </div>
+            {% if not calendar.selected_is_future %}
+              <form
+                method="post"
+                action="/calendar/habits/{{ item.habit.id }}/completions/{{ calendar.selected_date.isoformat() }}"
+                hx-post="/calendar/habits/{{ item.habit.id }}/completions/{{ calendar.selected_date.isoformat() }}"
+                hx-target="#calendar-content"
+                hx-swap="outerHTML"
+                hx-disabled-elt="button"
+              >
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="month" value="{{ calendar.month_start.strftime('%Y-%m') }}">
+                <input type="hidden" name="completed" value="{{ 'false' if item.completed else 'true' }}">
+                <button
+                  class="habit-toggle calendar-habit-toggle"
+                  type="submit"
+                  aria-pressed="{{ 'true' if item.completed else 'false' }}"
+                  aria-label="{{ item.habit.name }} {{ '완료 취소' if item.completed else '완료로 기록' }}"
+                ><span class="checkmark" aria-hidden="true">{{ '✓' if item.completed else '' }}</span></button>
+              </form>
+            {% endif %}
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="card empty compact-empty">
+        <p>이 날짜에 적용되는 습관이 없어요.</p>
+      </div>
+    {% endif %}
+  </section>
+</div>

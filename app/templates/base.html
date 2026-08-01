@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="습관 기록">
+    {% if show_notification_prompt %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
+    <title>{% block title %}Habit Tracker{% endblock %}</title>
+    <link rel="manifest" href="{{ url_for('static', path='/manifest.webmanifest') }}">
+    <link rel="icon" href="{{ url_for('static', path='/icons/app-icon.svg') }}" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{{ url_for('static', path='/icons/app-icon-180.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}">
+    <script src="{{ url_for('static', path='/vendor/htmx-2.0.10.min.js') }}" defer></script>
+    <script src="{{ url_for('static', path='/js/app.js') }}" defer></script>
+  </head>
+  <body>
+    <div id="offline-status" class="offline-status" role="status" aria-live="polite" hidden>
+      오프라인 상태입니다. 연결을 확인한 뒤 다시 시도해 주세요.
+    </div>
+    {% if show_notification_prompt %}
+      <section
+        id="notification-permission-prompt"
+        class="permission-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="notification-permission-title"
+        aria-describedby="notification-permission-message"
+        hidden
+      >
+        <div class="permission-card">
+          <span class="permission-icon" aria-hidden="true">🔔</span>
+          <h2 id="notification-permission-title">습관 알림을 받아보세요</h2>
+          <p id="notification-permission-message">설정한 시간에 습관을 잊지 않도록 알려드릴게요.</p>
+          <div class="permission-actions">
+            <button type="button" data-notification-allow>알림 허용</button>
+            <button type="button" class="secondary" data-notification-later>나중에</button>
+          </div>
+        </div>
+      </section>
+    {% endif %}
+    <main class="shell">
+      {% block content %}{% endblock %}
+    </main>
+    {% block tabbar %}{% endblock %}
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

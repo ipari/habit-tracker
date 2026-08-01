@@ -1,0 +1,65 @@
+import json
+
+from fastapi.testclient import TestClient
+
+from tests.conftest import login
+
+
+def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> None:
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    assert 'rel="manifest" href="http://testserver/static/manifest.webmanifest"' in response.text
+    assert 'src="http://testserver/static/vendor/htmx-2.0.10.min.js"' in response.text
+    assert "cdn.jsdelivr.net" not in response.text
+    assert 'id="offline-status"' in response.text
+
+
+def test_manifest_defines_standalone_app(client: TestClient) -> None:
+    response = client.get("/static/manifest.webmanifest")
+
+    assert response.status_code == 200
+    manifest = json.loads(response.text)
+    assert manifest["start_url"] == "/today"
+    assert manifest["scope"] == "/"
+    assert manifest["display"] == "standalone"
+    assert manifest["icons"][0]["sizes"] == "192x192"
+    assert manifest["icons"][1]["sizes"] == "512x512"
+    assert "maskable" in manifest["icons"][1]["purpose"]
+
+
+def test_service_worker_controls_app_scope_without_caching_html(client: TestClient) -> None:
+    response = client.get("/sw.js")
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["service-worker-allowed"] == "/"
+    assert 'url.pathname.startsWith("/static/")' in response.text
+    cache_and_fetch_source = response.text.split('self.addEventListener("push"')[0]
+    assert '"/today"' not in cache_and_fetch_source
+
+
+def test_installed_app_offers_notification_permission_after_user_action(
+    client: TestClient,
+) -> None:
+    assert 'id="notification-permission-prompt"' not in client.get("/login").text
+
+    login(client)
+    page = client.get("/today")
+    script = client.get("/static/js/app.js")
+
+    assert 'id="notification-permission-prompt"' in page.text
+    assert "습관 알림을 받아보세요" in page.text
+    assert "알림 허용" in page.text
+    assert "appinstalled" in script.text
+    assert "(display-mode: standalone)" in script.text
+    assert "Notification.requestPermission()" in script.text
+    assert "PushManager" in script.text
+    worker = client.get("/sw.js")
+    assert 'self.addEventListener("push"' in worker.text
+    assert "showNotification" in worker.text
+    assert 'self.addEventListener("notificationclick"' in worker.text
+
+    settings = client.get("/settings")
+    assert 'data-notification-open' in settings.text
+    assert 'id="notification-permission-status"' in settings.text

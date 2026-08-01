@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}설정 · Habit Tracker{% endblock %}
+{% block content %}
+  <header class="app-header">
+    <h1>설정</h1>
+  </header>
+
+  <section class="settings-group" aria-labelledby="app-settings-title">
+    <h2 id="app-settings-title" class="section-title">앱 설정</h2>
+    <div class="settings-row">
+      <span>시간대</span>
+      <span class="settings-value">{{ timezone }}</span>
+    </div>
+    <div class="settings-row">
+      <span>
+        알림 권한
+        <small id="notification-permission-status" class="settings-detail" aria-live="polite"></small>
+      </span>
+      <button type="button" class="secondary compact" data-notification-open>설정</button>
+    </div>
+  </section>
+
+  <section class="settings-group" aria-labelledby="account-settings-title">
+    <h2 id="account-settings-title" class="section-title">계정</h2>
+    <div class="settings-row">
+      <span>로그인 아이디</span>
+      <span class="settings-value">{{ user.username }}</span>
+    </div>
+    <form class="settings-action" method="post" action="/logout">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="settings-button" type="submit">로그아웃</button>
+    </form>
+  </section>
+{% endblock %}
+{% block tabbar %}{% include "_tab_bar.html" %}{% endblock %}

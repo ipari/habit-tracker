@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% set is_edit = habit is not none %}
+{% block title %}{{ '습관 편집' if is_edit else '새 습관' }} · Habit Tracker{% endblock %}
+{% block content %}
+  <header class="form-header">
+    <a class="back-link" href="{{ '/habits' if is_edit else '/today' }}">‹ {{ '습관' if is_edit else '오늘' }}</a>
+    <h1>{{ '습관 편집' if is_edit else '새 습관' }}</h1>
+    {% if is_edit %}<p class="muted">수행 요일 변경은 오늘부터 적용되고 과거 일정은 유지됩니다.</p>{% endif %}
+  </header>
+  {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+
+  <form class="card habit-form" method="post" action="{{ '/habits/' ~ habit.id if is_edit else '/habits' }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="name">습관 이름</label>
+    <input id="name" name="name" required maxlength="80" value="{{ values.get('name', habit.name if habit else '') }}" placeholder="예: 물 8잔 마시기">
+    <label for="emoji">이모지 <span class="optional-note">선택</span></label>
+    <input id="emoji" name="emoji" maxlength="32" value="{{ values.get('emoji', habit.emoji if habit else '') }}" inputmode="text" aria-describedby="emoji-help">
+    <p id="emoji-help" class="field-help">비워두면 기본 아이콘이 표시됩니다.</p>
+
+    <fieldset>
+      <legend>수행 요일 <span class="required-note">하나 이상 선택</span></legend>
+      <div class="weekday-grid">
+        {% for label in weekday_labels %}
+          <label class="weekday-option">
+            <input type="checkbox" name="weekdays" value="{{ loop.index0 }}" {% if loop.index0 in selected_weekdays %}checked{% endif %}>
+            <span>{{ label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <fieldset class="reminder-settings" aria-describedby="reminder-help">
+      <legend>알림</legend>
+      <label class="setting-toggle" for="reminder-enabled">
+        <span>
+          <strong>알림 사용</strong>
+          <small>선택한 요일과 현지 시간에 알려드려요.</small>
+        </span>
+        <input
+          id="reminder-enabled"
+          name="reminder_enabled"
+          type="checkbox"
+          value="true"
+          {% if reminder_enabled %}checked{% endif %}
+          {% if habit and habit.archived_at %}disabled{% endif %}
+        >
+      </label>
+      <p id="reminder-help" class="field-help reminder-help">현재는 알림 설정만 저장됩니다. 브라우저 푸시 연결은 다음 단계에서 추가됩니다.</p>
+      {% if habit and habit.archived_at %}<p class="field-help">보관된 습관의 알림은 활성화할 수 없습니다.</p>{% endif %}
+
+      <label for="reminder-time">알림 시간</label>
+      <input id="reminder-time" name="reminder_time" type="time" required value="{{ reminder_time }}">
+      <p class="field-help">알림은 항상 위에서 선택한 수행 요일에 맞춰 발송됩니다.</p>
+      <p class="timezone-note">기준 시간대: <strong>{{ reminder_timezone }}</strong></p>
+    </fieldset>
+
+    <fieldset>
+      <legend>공유 배경</legend>
+      <div class="preset-grid">
+        {% set current_preset = values.get('background_preset', habit.background_preset if habit else 'dawn') %}
+        {% for preset in background_presets %}
+          <label class="preset-option" data-preset="{{ preset }}">
+            <input type="radio" name="background_preset" value="{{ preset }}" {% if preset == current_preset %}checked{% endif %}>
+            <span>{{ preset }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <div class="form-actions">
+      <button type="submit">저장</button>
+      <a class="button-link secondary" href="/today">취소</a>
+    </div>
+  </form>
+
+  {% if is_edit and habit.archived_at is none %}
+    <form class="archive-form" method="post" action="/habits/{{ habit.id }}/archive">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="danger-secondary" type="submit">습관 보관</button>
+      <p class="muted">과거 달성 기록과 일정은 삭제되지 않습니다.</p>
+    </form>
+{% endif %}
+{% endblock %}

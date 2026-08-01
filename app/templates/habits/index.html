@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_habit_icon.html" import habit_icon %}
+{% block title %}습관 · Habit Tracker{% endblock %}
+{% block content %}
+  <header class="app-header">
+    <h1>습관</h1>
+  </header>
+  {% if habits %}
+    <section class="management-list" aria-label="전체 습관">
+      {% for habit in habits %}
+        <article class="management-card{% if habit.archived_at %} archived{% endif %}">
+          {{ habit_icon(habit.emoji) }}
+          <div>
+            <h2>{{ habit.name }}</h2>
+            <p class="muted status-label">{{ '보관됨' if habit.archived_at else '활성' }}</p>
+          </div>
+          <a class="icon-button edit-link" href="/habits/{{ habit.id }}/edit" aria-label="{{ habit.name }} 편집">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5.5 4 4M4 20l3.7-.8L19 7.9a1.4 1.4 0 0 0 0-2l-.9-.9a1.4 1.4 0 0 0-2 0L4.8 16.3 4 20Z"/></svg>
+          </a>
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="card empty">
+      <h2>아직 만든 습관이 없어요</h2>
+      <p class="muted">첫 습관을 추가해 보세요.</p>
+    </section>
+  {% endif %}
+  <a class="add-habit-row" href="/habits/new">
+    <span class="add-habit-icon" aria-hidden="true">+</span>
+    <span>새 습관 추가</span>
+  </a>
+{% endblock %}
+{% block tabbar %}{% include "_tab_bar.html" %}{% endblock %}

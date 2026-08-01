@@ -1,0 +1,12 @@
+{% macro habit_icon(emoji, class_name='habit-emoji') -%}
+  {% if emoji %}
+    <span class="{{ class_name }}" aria-hidden="true">{{ emoji }}</span>
+  {% else %}
+    <span class="{{ class_name }} default-habit-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/>
+        <path d="M8.5 13.2c1.1 1.2 2.2 1.8 3.5 1.8 1.4 0 2.6-.6 3.6-1.8M8.6 9.5h.1m6.6 0h.1"/>
+      </svg>
+    </span>
+  {% endif %}
+{%- endmacro %}

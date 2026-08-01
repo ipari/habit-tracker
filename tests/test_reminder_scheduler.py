@@ -1,0 +1,146 @@
+from datetime import UTC, date, datetime, time
+from typing import cast
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+
+from app.config import Settings
+from app.db.models import PushSubscription, Reminder, ReminderDelivery
+from app.domain.schedules import weekdays_to_mask
+from app.reminders.schedule import scheduled_occurrences, scheduled_utc
+from app.reminders.scheduler import run_once
+from app.reminders.sender import ExpiredSubscriptionError
+from tests.conftest import client_database, login
+from tests.test_habits import create_habit
+
+
+def test_spring_forward_time_moves_by_the_dst_gap() -> None:
+    scheduled = scheduled_utc(
+        date(2026, 3, 8), time(2, 30), "America/New_York"
+    )
+
+    assert scheduled == datetime(2026, 3, 8, 7, 30, tzinfo=UTC)
+
+
+def test_fall_back_ambiguous_time_uses_first_occurrence_only() -> None:
+    scheduled = scheduled_utc(
+        date(2026, 11, 1), time(1, 30), "America/New_York"
+    )
+
+    assert scheduled == datetime(2026, 11, 1, 5, 30, tzinfo=UTC)
+    occurrences = scheduled_occurrences(
+        weekdays_mask=weekdays_to_mask([6]),
+        local_time=time(1, 30),
+        timezone="America/New_York",
+        window_start=datetime(2026, 11, 1, 4, 0, tzinfo=UTC),
+        window_end=datetime(2026, 11, 1, 7, 0, tzinfo=UTC),
+    )
+    assert occurrences == [scheduled]
+
+
+def add_enabled_reminder_and_subscription(client: TestClient) -> tuple[int, int]:
+    habit_id = create_habit(client, weekdays=[5])
+    database = client_database(client)
+    with database.session_factory() as db:
+        reminder = db.scalar(select(Reminder).where(Reminder.habit_id == habit_id))
+        assert reminder is not None
+        reminder.is_enabled = True
+        reminder.local_time = time(9, 0)
+        subscription = PushSubscription(
+            endpoint="https://push.example.test/one",
+            p256dh="p256dh",
+            auth="auth",
+            user_agent="Test",
+            is_active=True,
+            failure_count=0,
+        )
+        db.add(subscription)
+        db.commit()
+        return reminder.id, subscription.id
+
+
+def test_scheduler_sends_once_per_subscription_and_scheduled_time(
+    client: TestClient,
+) -> None:
+    login(client)
+    reminder_id, _subscription_id = add_enabled_reminder_and_subscription(client)
+    sent: list[dict[str, str]] = []
+
+    def fake_send(
+        _subscription: PushSubscription, payload: dict[str, str], _settings: Settings
+    ) -> None:
+        sent.append(payload)
+
+    database = client_database(client)
+    app = cast(FastAPI, client.app)
+    now = datetime(2026, 8, 1, 0, 0, 30, tzinfo=UTC)
+    with database.session_factory() as db:
+        assert run_once(db, app.state.settings, now=now, send=fake_send) == 1
+        assert run_once(db, app.state.settings, now=now, send=fake_send) == 0
+        delivery = db.scalar(
+            select(ReminderDelivery).where(ReminderDelivery.reminder_id == reminder_id)
+        )
+        assert delivery is not None
+        assert delivery.status == "sent"
+        assert delivery.attempt_count == 1
+
+    assert len(sent) == 1
+    assert sent[0]["url"] == "/today"
+    assert sent[0]["tag"] == "habit-reminder-1-20260801T000000Z"
+
+
+def test_expired_subscription_is_disabled(client: TestClient) -> None:
+    login(client)
+    _reminder_id, subscription_id = add_enabled_reminder_and_subscription(client)
+
+    def expired_send(
+        _subscription: PushSubscription, _payload: dict[str, str], _settings: Settings
+    ) -> None:
+        raise ExpiredSubscriptionError("gone")
+
+    database = client_database(client)
+    app = cast(FastAPI, client.app)
+    with database.session_factory() as db:
+        run_once(
+            db,
+            app.state.settings,
+            now=datetime(2026, 8, 1, 0, 0, 30, tzinfo=UTC),
+            send=expired_send,
+        )
+        subscription = db.get(PushSubscription, subscription_id)
+        assert subscription is not None
+        assert subscription.is_active is False
+
+
+def test_transient_failure_retries_at_most_three_times(client: TestClient) -> None:
+    login(client)
+    reminder_id, subscription_id = add_enabled_reminder_and_subscription(client)
+    calls = 0
+
+    def failing_send(
+        _subscription: PushSubscription, _payload: dict[str, str], _settings: Settings
+    ) -> None:
+        nonlocal calls
+        calls += 1
+        raise RuntimeError("temporary push service failure")
+
+    database = client_database(client)
+    app = cast(FastAPI, client.app)
+    now = datetime(2026, 8, 1, 0, 0, 30, tzinfo=UTC)
+    with database.session_factory() as db:
+        assert run_once(db, app.state.settings, now=now, send=failing_send) == 1
+        assert run_once(db, app.state.settings, now=now, send=failing_send) == 1
+        assert run_once(db, app.state.settings, now=now, send=failing_send) == 1
+        assert run_once(db, app.state.settings, now=now, send=failing_send) == 0
+        delivery = db.scalar(
+            select(ReminderDelivery).where(
+                ReminderDelivery.reminder_id == reminder_id,
+                ReminderDelivery.subscription_id == subscription_id,
+            )
+        )
+        assert delivery is not None
+        assert delivery.status == "failed"
+        assert delivery.attempt_count == 3
+
+    assert calls == 3

@@ -1,0 +1,34 @@
+{% from "_habit_icon.html" import habit_icon %}
+<article
+  id="habit-{{ item.habit.id }}"
+  class="habit-card{% if item.completed %} completed{% endif %}"
+  data-preset="{{ item.habit.background_preset }}"
+>
+  <div class="habit-content">
+    {{ habit_icon(item.habit.emoji) }}
+    <div>
+      <h2>{{ item.habit.name }}</h2>
+      <p class="streak">연속 {{ item.streak }}회</p>
+      <span class="sr-only">{{ '오늘 완료함' if item.completed else '오늘 미완료' }}</span>
+    </div>
+  </div>
+  <form
+    method="post"
+    action="/habits/{{ item.habit.id }}/completions/{{ local_date.isoformat() }}"
+    hx-post="/habits/{{ item.habit.id }}/completions/{{ local_date.isoformat() }}"
+    hx-target="#habit-{{ item.habit.id }}"
+    hx-swap="outerHTML"
+    hx-disabled-elt="button"
+  >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="completed" value="{{ 'false' if item.completed else 'true' }}">
+    <button
+      class="habit-toggle"
+      type="submit"
+      aria-pressed="{{ 'true' if item.completed else 'false' }}"
+      aria-label="{{ item.habit.name }} {{ '완료 취소' if item.completed else '완료' }}"
+    >
+      <span class="checkmark" aria-hidden="true">{{ '✓' if item.completed else '' }}</span>
+    </button>
+  </form>
+</article>
