@@ -361,6 +361,10 @@ def share_habit(
 ) -> HTMLResponse:
     habit = habit_or_404(db, habit_id)
     local_date = current_local_date(db)
+    start_date = min(
+        (habit_schedule.effective_from for habit_schedule in habit.schedules),
+        default=local_date,
+    )
     origin = normalize_return_to(request.query_params.get("from"))
     return render_template(
         request,
@@ -369,6 +373,7 @@ def share_habit(
             "habit": habit,
             "share_emoji": habit.emoji or "✨",
             "streak": habit_streak(db, habit.id, local_date),
+            "start_label": habit_start_label(start_date),
             "return_to": origin,
         },
     )

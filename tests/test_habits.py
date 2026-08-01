@@ -140,6 +140,7 @@ def test_habit_detail_collects_management_actions(client: TestClient) -> None:
     assert "<span>알림</span>" in detail.text
     assert "<strong>꺼짐</strong>" in detail.text
     assert "공유 배경" not in detail.text
+    assert detail.text.index("습관 설정 요약") < detail.text.index("<span>삭제</span>")
 
     management = client.get("/habits")
     assert f'href="/habits/{habit_id}?from=habits"' in management.text

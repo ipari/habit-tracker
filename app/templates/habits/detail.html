@@ -21,7 +21,7 @@
     <p>{{ start_label }}</p>
   </section>
 
-  <div class="detail-actions{% if habit.archived_at is none %} has-delete{% endif %}" aria-label="습관 작업">
+  <div class="detail-actions" aria-label="습관 작업">
     <a class="detail-action" href="/habits/{{ habit.id }}/share?from={{ return_to }}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m0 0L7.5 7.5M12 3l4.5 4.5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
       <span>공유</span>
@@ -30,20 +30,6 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5.5 4 4M4 20l3.7-.8L19 7.9a1.4 1.4 0 0 0 0-2l-.9-.9a1.4 1.4 0 0 0-2 0L4.8 16.3 4 20Z"/></svg>
       <span>편집</span>
     </a>
-    {% if habit.archived_at is none %}
-      <form
-        class="detail-delete"
-        method="post"
-        action="/habits/{{ habit.id }}/archive"
-        data-confirm="과거 달성 기록과 일정은 삭제되지 않습니다. 습관을 삭제할까요?"
-      >
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="detail-action danger-action" type="submit">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5"/></svg>
-          <span>삭제</span>
-        </button>
-      </form>
-    {% endif %}
   </div>
 
   <section class="detail-list" aria-label="습관 설정 요약">
@@ -62,6 +48,21 @@
       <strong>{{ reminder_label }}</strong>
     </div>
   </section>
+
+  {% if habit.archived_at is none %}
+    <form
+      class="detail-delete"
+      method="post"
+      action="/habits/{{ habit.id }}/archive"
+      data-confirm="과거 달성 기록과 일정은 삭제되지 않습니다. 습관을 삭제할까요?"
+    >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="detail-action danger-action" type="submit">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5"/></svg>
+        <span>삭제</span>
+      </button>
+    </form>
+  {% endif %}
 
 {% endblock %}
 {% block tabbar %}{% include "_tab_bar.html" %}{% endblock %}

@@ -9,35 +9,35 @@
   </header>
   {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
 
-  <form class="card habit-form" method="post" action="{{ '/habits/' ~ habit.id if is_edit else '/habits' }}">
+  <form class="habit-form" method="post" action="{{ '/habits/' ~ habit.id if is_edit else '/habits' }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% if is_edit %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
-    <label for="name">습관 이름</label>
-    <input id="name" name="name" required maxlength="80" value="{{ values.get('name', habit.name if habit else '') }}" placeholder="예: 물 8잔 마시기">
-    <label for="emoji">이모지 <span class="optional-note">선택</span></label>
-    <input id="emoji" name="emoji" maxlength="32" value="{{ values.get('emoji', habit.emoji if habit else '') }}" inputmode="text" aria-describedby="emoji-help">
-    <p id="emoji-help" class="field-help">비워두면 기본 아이콘이 표시됩니다.</p>
+    <section class="habit-form-section" aria-label="기본 정보">
+      <label for="name">습관 이름</label>
+      <input id="name" name="name" required maxlength="80" value="{{ values.get('name', habit.name if habit else '') }}" placeholder="예: 물 8잔 마시기">
+      <label for="emoji">이모지 <span class="optional-note">선택</span></label>
+      <input id="emoji" name="emoji" maxlength="32" value="{{ values.get('emoji', habit.emoji if habit else '') }}" inputmode="text" aria-describedby="emoji-help">
+      <p id="emoji-help" class="field-help">비워두면 기본 아이콘이 표시됩니다.</p>
+    </section>
 
-    <fieldset>
-      <legend>요일 <span class="required-note">하나 이상 선택</span></legend>
-      <div class="weekday-grid">
-        {% for label in weekday_labels %}
-          <label class="weekday-option">
-            <input type="checkbox" name="weekdays" value="{{ loop.index0 }}" {% if loop.index0 in selected_weekdays %}checked{% endif %}>
-            <span>{{ label }}</span>
-          </label>
-        {% endfor %}
+    <section class="habit-form-section schedule-form-section" aria-label="일정과 알림">
+      <fieldset>
+        <legend>요일 <span class="required-note">하나 이상 선택</span></legend>
+        <div class="weekday-grid">
+          {% for label in weekday_labels %}
+            <label class="weekday-option">
+              <input type="checkbox" name="weekdays" value="{{ loop.index0 }}" {% if loop.index0 in selected_weekdays %}checked{% endif %}>
+              <span>{{ label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <div class="habit-form-field">
+        <label for="reminder-time">시간</label>
+        <input id="reminder-time" name="reminder_time" type="time" required value="{{ reminder_time }}">
       </div>
-    </fieldset>
-
-    <fieldset class="reminder-settings">
-      <legend class="sr-only">시간 및 알림</legend>
-      <label for="reminder-time">시간</label>
-      <input id="reminder-time" name="reminder_time" type="time" required value="{{ reminder_time }}">
-      <label class="setting-toggle" for="reminder-enabled">
-        <span>
-          <strong>알림 사용</strong>
-        </span>
+      <label class="setting-toggle habit-form-field" for="reminder-enabled">
+        <strong>알림 사용</strong>
         <input
           id="reminder-enabled"
           name="reminder_enabled"
@@ -48,20 +48,22 @@
         >
       </label>
       {% if habit and habit.archived_at %}<p class="field-help">보관된 습관의 알림은 활성화할 수 없습니다.</p>{% endif %}
-    </fieldset>
+    </section>
 
-    <fieldset>
-      <legend>공유 배경</legend>
-      <div class="preset-grid">
-        {% set current_preset = values.get('background_preset', habit.background_preset if habit else 'dawn') %}
-        {% for preset in background_presets %}
-          <label class="preset-option" data-preset="{{ preset }}">
-            <input type="radio" name="background_preset" value="{{ preset }}" {% if preset == current_preset %}checked{% endif %}>
-            <span>{{ preset }}</span>
-          </label>
-        {% endfor %}
-      </div>
-    </fieldset>
+    <section class="habit-form-section" aria-label="공유 배경">
+      <fieldset>
+        <legend>공유 배경</legend>
+        <div class="preset-grid">
+          {% set current_preset = values.get('background_preset', habit.background_preset if habit else 'dawn') %}
+          {% for preset in background_presets %}
+            <label class="preset-option" data-preset="{{ preset }}">
+              <input type="radio" name="background_preset" value="{{ preset }}" {% if preset == current_preset %}checked{% endif %}>
+              <span>{{ preset }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+    </section>
 
     <div class="form-actions">
       <button type="submit">저장</button>

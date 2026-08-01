@@ -297,7 +297,6 @@ input {
 }
 
 .card,
-.habit-form,
 .calendar-card {
   border: 1px solid var(--threads-border);
   border-radius: var(--radius-surface);
@@ -374,6 +373,7 @@ input {
 .calendar-day.selected { border-color: transparent; background: var(--threads-raised); box-shadow: inset 0 0 0 1.5px rgb(10 10 10 / 38%); }
 .calendar-day[aria-current="date"] { box-shadow: inset 0 0 0 1px rgb(10 10 10 / 16%); }
 .calendar-day[aria-current="date"].selected { box-shadow: inset 0 0 0 1.5px rgb(10 10 10 / 38%); }
+.calendar-day[aria-current="date"].selected { background: transparent; }
 .calendar-day[aria-current="date"] .day-number { font-weight: 800; }
 .calendar-day.state-complete,
 .calendar-day.state-partial,
@@ -513,7 +513,7 @@ input {
   .calendar-day:hover { background: #171717; }
   .calendar-day.selected { background: #171717; box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 38%); }
   .calendar-day[aria-current="date"] { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 20%); }
-  .calendar-day[aria-current="date"].selected { box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 38%); }
+  .calendar-day[aria-current="date"].selected { background: transparent; box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / 38%); }
   .calendar-day.state-complete,
   .calendar-day.state-partial,
   .calendar-day.state-missed { background: transparent; color: var(--threads-text); }
@@ -648,17 +648,27 @@ body { padding-bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
 .detail-streak span { color: var(--threads-secondary); font-weight: 600; }
 .detail-streak p { margin: 0; color: var(--threads-secondary); font-size: .86rem; }
 .detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; margin-top: .8rem; }
-.detail-actions.has-delete { grid-template-columns: repeat(3, 1fr); }
 .detail-action { display: flex; min-height: 3.25rem; align-items: center; justify-content: center; gap: .5rem; border: 1px solid var(--threads-border); border-radius: var(--radius-full); background: var(--threads-surface); color: var(--threads-text); font-weight: 650; text-decoration: none; }
 .detail-action:hover { background: var(--threads-raised); }
 .detail-action svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
-.detail-delete { margin: 0; }
+.detail-delete { margin-top: .8rem; }
 .detail-delete .detail-action { width: 100%; color: #d70015; }
 .detail-list { overflow: hidden; margin-top: 1.5rem; border: 1px solid var(--threads-border); border-radius: var(--radius-section); }
 .detail-row { display: flex; min-height: 3.6rem; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem 1rem; border-bottom: 1px solid var(--threads-border); }
 .detail-row:last-child { border-bottom: 0; }
 .detail-row > span { color: var(--threads-secondary); }
 .detail-row > strong { overflow-wrap: anywhere; text-align: right; }
+.habit-form { gap: .9rem; }
+.habit-form-section { display: grid; gap: .8rem; padding: 1rem; border: 1px solid var(--threads-border); border-radius: var(--radius-surface); background: var(--threads-surface); }
+.habit-form-section fieldset { margin: 0; }
+.schedule-form-section { gap: 0; }
+.schedule-form-section > fieldset,
+.habit-form-field { padding: 1rem 0; border-bottom: 1px solid var(--threads-border); }
+.schedule-form-section > fieldset { padding-top: 0; }
+.schedule-form-section > .habit-form-field:last-of-type { padding-bottom: 0; border-bottom: 0; }
+.habit-form-field { display: grid; gap: .45rem; }
+.setting-toggle.habit-form-field { display: flex; }
+.habit-form > .form-actions { margin-top: .15rem; }
 
 /* Radius hierarchy: surfaces > nested sections > compact controls > circles/pills. */
 .permission-card,

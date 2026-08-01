@@ -26,12 +26,16 @@ def test_share_page_uses_current_streak_and_saved_preset(client: TestClient) -> 
     assert 'data-habit-name="물 마시기"' in response.text
     assert 'data-habit-emoji="💧"' in response.text
     assert 'data-streak="1"' in response.text
+    assert "data-start-label=" in response.text
     assert 'data-preset="ocean"' in response.text
     assert 'width="1080"' in response.text
     assert 'height="1920"' in response.text
     assert "/static/js/share.js" in response.text
-    assert "시스템으로 공유" in response.text
-    assert "PNG 다운로드" in response.text
+    assert "공유하기" in response.text
+    assert ">공유</button>" in response.text
+    assert ">다운로드</button>" in response.text
+    assert "현재 연속 달성 기록을" not in response.text
+    assert "공유 이미지는 1080\u00d71920" not in response.text
     assert "owner" not in response.text
 
 
@@ -54,3 +58,6 @@ def test_share_script_has_file_share_and_download_fallback(client: TestClient) -
     assert 'link.download' in script.text
     assert 'canvas.width' in script.text
     assert 'canvas.height' in script.text
+    assert "composer.dataset.startLabel" in script.text
+    assert "context.fillText(startLabel" in script.text
+    assert 'setStatus("공유 이미지가 준비되었습니다.")' not in script.text

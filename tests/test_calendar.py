@@ -117,7 +117,7 @@ def test_calendar_records_an_unscheduled_habit_from_the_additional_section(
     token = csrf_token(client)
     month = today.strftime("%Y-%m")
     page = client.get(f"/calendar?month={month}&selected={today.isoformat()}")
-    assert "이 날짜에 예정된 습관이 없어요." in page.text
+    assert "이 날짜에 하기로 한 습관이 없어요." in page.text
     assert "다른 습관 기록" in page.text
     assert '<svg class="add-habit-icon" viewBox="0 0 24 24" aria-hidden="true">' in page.text
     assert '<path d="M12 7v10M7 12h10"' in page.text

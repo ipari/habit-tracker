@@ -63,6 +63,7 @@ function drawShareImage() {
   const name = composer.dataset.habitName || "나의 습관";
   const emoji = composer.dataset.habitEmoji || "✨";
   const streak = Number.parseInt(composer.dataset.streak || "0", 10);
+  const startLabel = composer.dataset.startLabel || "";
   const colors = PRESETS[composer.dataset.preset] || PRESETS.dawn;
 
   const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
@@ -103,6 +104,10 @@ function drawShareImage() {
   context.shadowBlur = 16;
   context.font = '700 82px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
   context.fillText(`연속 ${Number.isNaN(streak) ? 0 : streak}회 달성`, 540, 1270);
+
+  context.font = '500 38px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
+  context.fillStyle = "rgb(255 255 255 / 82%)";
+  context.fillText(startLabel, 540, 1360);
 
   context.shadowBlur = 0;
   context.font = '600 30px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
@@ -188,7 +193,7 @@ async function prepareShareImage() {
     composer.querySelector(".share-preview-frame")?.setAttribute("aria-busy", "false");
     shareButton.disabled = false;
     downloadButton.disabled = false;
-    setStatus("공유 이미지가 준비되었습니다.");
+    setStatus("");
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "공유 이미지를 준비하지 못했습니다.");
   }
