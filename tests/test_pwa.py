@@ -15,7 +15,13 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     ) in response.text
     assert 'rel="manifest" href="http://testserver/static/manifest.webmanifest"' in response.text
     assert 'src="http://testserver/static/vendor/htmx-2.0.10.min.js"' in response.text
-    assert 'href="http://testserver/static/css/app.css?v=26"' in response.text
+    assert 'src="http://testserver/static/js/theme.js?v=1"' in response.text
+    assert 'href="http://testserver/static/css/app.css?v=30"' in response.text
+
+    stylesheet = client.get("/static/css/app.css")
+    assert "scrollbar-gutter: stable both-edges" in stylesheet.text
+    assert "scrollbar-color: var(--scrollbar-thumb" in stylesheet.text
+    assert "width: min(calc(100vw - 3.5rem), 35rem)" in stylesheet.text
     assert 'src="http://testserver/static/js/app.js?v=2"' in response.text
     assert "cdn.jsdelivr.net" not in response.text
     assert 'id="offline-status"' in response.text
@@ -66,6 +72,7 @@ def test_installed_app_offers_notification_permission_after_user_action(
     assert "showNotification" in worker.text
     assert 'self.addEventListener("notificationclick"' in worker.text
     assert '"/static/js/share.js?v=2"' in worker.text
+    assert '"/static/js/theme.js?v=1"' in worker.text
 
     settings = client.get("/settings")
     assert 'data-notification-open' in settings.text

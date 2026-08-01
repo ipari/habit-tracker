@@ -25,10 +25,22 @@ def test_settings_uses_device_iana_timezone(client: TestClient) -> None:
     assert "날짜와 알림에 사용할" not in response.text
     assert "common-timezones" not in response.text
     assert response.text.count('class="settings-surface"') == 2
+    assert 'data-theme-options' in response.text
+    assert 'value="system"' in response.text
+    assert 'value="light"' in response.text
+    assert 'value="dark"' in response.text
+    assert "시스템 설정" in response.text
+    assert "Light" in response.text
+    assert "Dark" in response.text
 
     script = client.get("/static/js/app.js")
     assert "Intl.DateTimeFormat().resolvedOptions().timeZone" in script.text
     assert "deviceTimezoneForm.requestSubmit()" in script.text
+
+    theme_script = client.get("/static/js/theme.js")
+    assert "window.localStorage" in theme_script.text
+    assert "document.documentElement.dataset.theme" in theme_script.text
+    assert "const initialTheme = savedTheme()" in theme_script.text
 
 
 def test_timezone_change_updates_existing_reminders_without_changing_local_time(

@@ -22,6 +22,24 @@
         <span>시간대</span>
         <span class="settings-value">{{ timezone }}</span>
       </div>
+      <div class="settings-theme-row">
+        <span>화면 모드</span>
+        <fieldset class="theme-options" data-theme-options>
+          <legend class="sr-only">화면 모드</legend>
+          <label class="theme-option">
+            <input type="radio" name="color-theme" value="system">
+            <span>시스템 설정</span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="color-theme" value="light">
+            <span>Light</span>
+          </label>
+          <label class="theme-option">
+            <input type="radio" name="color-theme" value="dark">
+            <span>Dark</span>
+          </label>
+        </fieldset>
+      </div>
       {% if timezone_error %}<p id="timezone-error" class="settings-inline-error settings-surface-message" role="alert">{{ timezone_error }}</p>{% endif %}
       <div class="settings-row">
         <span>
