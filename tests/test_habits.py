@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app.db.models import Habit, HabitCompletion, HabitSchedule, Reminder
-from app.habits.routes import detail_schedule_label
+from app.habits.routes import detail_schedule_label, is_single_grapheme
 from app.habits.service import current_local_date
 from tests.conftest import client_database, csrf_token, login
 
@@ -154,6 +154,15 @@ def test_habit_detail_uses_compact_schedule_labels() -> None:
     assert detail_schedule_label((4, 5)) == "주말"
     assert detail_schedule_label((5, 6)) == "주말"
     assert detail_schedule_label(tuple(range(7))) == "매일"
+
+
+def test_emoji_accepts_at_most_one_visible_character() -> None:
+    assert is_single_grapheme("")
+    assert is_single_grapheme("💧")
+    assert is_single_grapheme("👍🏽")
+    assert is_single_grapheme("👨‍👩‍👧‍👦")
+    assert is_single_grapheme("🇰🇷")
+    assert not is_single_grapheme("💧✨")
 
 
 def test_habit_list_summarizes_schedule_streak_and_reminder(client: TestClient) -> None:

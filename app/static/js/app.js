@@ -29,6 +29,20 @@ window.addEventListener("online", updateConnectionStatus);
 window.addEventListener("offline", updateConnectionStatus);
 updateConnectionStatus();
 
+const emojiInput = document.querySelector("[data-single-grapheme]");
+
+function firstGrapheme(value) {
+  if (typeof Intl.Segmenter === "function") {
+    return new Intl.Segmenter(undefined, { granularity: "grapheme" })
+      .segment(value)[Symbol.iterator]().next().value?.segment || "";
+  }
+  return Array.from(value)[0] || "";
+}
+
+emojiInput?.addEventListener("input", () => {
+  emojiInput.value = firstGrapheme(emojiInput.value);
+});
+
 const deviceTimezoneForm = document.querySelector("[data-device-timezone-form]");
 const deviceTimezoneInput = document.querySelector("[data-device-timezone-input]");
 

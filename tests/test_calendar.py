@@ -89,6 +89,16 @@ def test_calendar_marks_unscheduled_completion_as_extra(client: TestClient) -> N
     assert selected_day.extra_count == 1
 
 
+def test_calendar_shows_missed_dot_for_unfinished_today(client: TestClient) -> None:
+    _habit_id, today = seed_daily_habit(client)
+    login(client)
+
+    page = client.get(f"/calendar?selected={today.isoformat()}")
+
+    assert 'class="calendar-day state-planned' in page.text
+    assert 'class="calendar-status-dot missed"' in page.text
+
+
 def test_calendar_records_an_unscheduled_habit_from_the_additional_section(
     client: TestClient,
 ) -> None:

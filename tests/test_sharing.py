@@ -30,10 +30,10 @@ def test_share_page_uses_current_streak_and_saved_preset(client: TestClient) -> 
     assert 'data-preset="ocean"' in response.text
     assert 'width="1080"' in response.text
     assert 'height="1920"' in response.text
-    assert "/static/js/share.js" in response.text
-    assert "공유하기" in response.text
-    assert ">공유</button>" in response.text
-    assert ">다운로드</button>" in response.text
+    assert "/static/js/share.js?v=2" in response.text
+    assert "<h1>공유하기</h1>" not in response.text
+    assert 'aria-label="공유"' in response.text
+    assert 'aria-label="다운로드"' in response.text
     assert "현재 연속 달성 기록을" not in response.text
     assert "공유 이미지는 1080\u00d71920" not in response.text
     assert "owner" not in response.text

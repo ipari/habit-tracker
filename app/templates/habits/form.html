@@ -1,11 +1,10 @@
 {% extends "base.html" %}
 {% set is_edit = habit is not none %}
-{% block title %}{{ '습관 편집' if is_edit else '새 습관' }} · Habit Tracker{% endblock %}
+{% block title %}{{ '습관 수정' if is_edit else '새 습관' }} · Habit Tracker{% endblock %}
 {% block content %}
   <header class="form-header">
     <a class="back-link" href="{{ return_path if is_edit else '/today' }}">‹ {{ return_label if is_edit else '오늘' }}</a>
-    <h1>{{ '습관 편집' if is_edit else '새 습관' }}</h1>
-    {% if is_edit %}<p class="muted">수행 요일 변경은 오늘부터 적용되고 과거 일정은 유지됩니다.</p>{% endif %}
+    <h1>{{ '습관 수정' if is_edit else '새 습관' }}</h1>
   </header>
   {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
 
@@ -16,7 +15,7 @@
       <label for="name">습관 이름</label>
       <input id="name" name="name" required maxlength="80" value="{{ values.get('name', habit.name if habit else '') }}" placeholder="예: 물 8잔 마시기">
       <label for="emoji">이모지 <span class="optional-note">선택</span></label>
-      <input id="emoji" name="emoji" maxlength="32" value="{{ values.get('emoji', habit.emoji if habit else '') }}" inputmode="text" aria-describedby="emoji-help">
+      <input id="emoji" name="emoji" maxlength="32" value="{{ values.get('emoji', habit.emoji if habit else '') }}" inputmode="text" aria-describedby="emoji-help" data-single-grapheme>
       <p id="emoji-help" class="field-help">비워두면 기본 아이콘이 표시됩니다.</p>
     </section>
 
@@ -36,8 +35,8 @@
         <label for="reminder-time">시간</label>
         <input id="reminder-time" name="reminder_time" type="time" required value="{{ reminder_time }}">
       </div>
-      <label class="setting-toggle habit-form-field" for="reminder-enabled">
-        <strong>알림 사용</strong>
+      <label class="setting-toggle habit-form-field notification-toggle" for="reminder-enabled">
+        <strong>알림 받기</strong>
         <input
           id="reminder-enabled"
           name="reminder_enabled"

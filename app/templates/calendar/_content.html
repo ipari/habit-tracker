@@ -43,7 +43,7 @@
               >
                 <span class="day-number">{{ day.local_date.day }}</span>
                 <span class="day-summary" aria-hidden="true">
-                  {% if day.state in ('complete', 'partial', 'missed') %}<i class="calendar-status-dot {{ day.state }}"></i>{% endif %}
+                  {% if day.state in ('complete', 'partial', 'missed', 'planned') %}<i class="calendar-status-dot {{ 'missed' if day.state == 'planned' else day.state }}"></i>{% endif %}
                 </span>
               </a>
             </div>

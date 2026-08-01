@@ -1,3 +1,4 @@
+import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from typing import Annotated, Any
@@ -136,8 +137,8 @@ def validate_habit_form(
     clean_emoji = emoji.strip()
     if not clean_name or len(clean_name) > 80:
         raise ValueError("습관 이름을 1자 이상 80자 이하로 입력해 주세요.")
-    if len(clean_emoji) > 32:
-        raise ValueError("이모지는 32자 이하로 입력해 주세요.")
+    if not is_single_grapheme(clean_emoji):
+        raise ValueError("이모지는 한 글자만 입력해 주세요.")
     if background_preset not in BACKGROUND_PRESETS:
         raise ValueError("올바른 배경을 선택해 주세요.")
     try:
@@ -145,6 +146,27 @@ def validate_habit_form(
     except ValueError as exc:
         raise ValueError("수행 요일을 하나 이상 선택해 주세요.") from exc
     return clean_name, clean_emoji, mask
+
+
+def is_single_grapheme(value: str) -> bool:
+    if not value:
+        return True
+    if all("\U0001f1e6" <= character <= "\U0001f1ff" for character in value):
+        return len(value) <= 2
+    graphemes = 0
+    follows_joiner = False
+    for character in value:
+        codepoint = ord(character)
+        is_modifier = (
+            unicodedata.category(character).startswith("M")
+            or codepoint in {0xFE0E, 0xFE0F, 0x200D}
+            or 0x1F3FB <= codepoint <= 0x1F3FF
+            or 0xE0020 <= codepoint <= 0xE007F
+        )
+        if not is_modifier and not follows_joiner:
+            graphemes += 1
+        follows_joiner = codepoint == 0x200D
+    return graphemes <= 1
 
 
 def validate_reminder_form(
