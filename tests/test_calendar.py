@@ -129,8 +129,11 @@ def test_calendar_records_an_unscheduled_habit_from_the_additional_section(
     page = client.get(f"/calendar?month={month}&selected={today.isoformat()}")
     assert "이 날짜에 하기로 한 습관이 없어요." in page.text
     assert "다른 습관 기록" in page.text
-    assert '<svg class="add-habit-icon" viewBox="0 0 24 24" aria-hidden="true">' in page.text
-    assert '<path d="M12 7v10M7 12h10"' in page.text
+    assert page.text.index("다른 습관 기록") < page.text.index("additional-habits-chevron")
+    additional_summary = page.text.split('<details class="additional-habits">', 1)[1].split(
+        "</summary>", 1
+    )[0]
+    assert "add-habit-icon" not in additional_summary
     assert 'aria-label="수영 추가 달성 기록"' in page.text
     additional_button = page.text.split(
         'aria-label="수영 추가 달성 기록"', 1

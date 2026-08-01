@@ -1,6 +1,6 @@
-const CACHE_NAME = "habit-tracker-static-v31";
+const CACHE_NAME = "habit-tracker-static-v34";
 const STATIC_ASSETS = [
-  "/static/css/app.css?v=31",
+  "/static/css/app.css?v=34",
   "/static/js/theme.js?v=1",
   "/static/js/app.js?v=2",
   "/static/js/calendar.js",

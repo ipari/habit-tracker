@@ -337,6 +337,10 @@ def test_archive_hides_habit_but_preserves_records(client: TestClient) -> None:
     assert "물 마시기" in management_page.text
     assert '<details class="past-habits">' in management_page.text
     assert "지난 습관들" in management_page.text
+    assert management_page.text.index("지난 습관들") < management_page.text.index(
+        "past-habit-chevron"
+    )
+    assert "past-habit-count" not in management_page.text
     assert "보관됨" not in management_page.text
     assert management_page.text.index("past-habits") < management_page.text.index("물 마시기")
     with database.session_factory() as db:
