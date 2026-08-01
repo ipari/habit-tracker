@@ -8,17 +8,24 @@ from tests.conftest import client_database, csrf_token, login
 from tests.test_habits import create_habit
 
 
-def test_settings_shows_editable_iana_timezone(client: TestClient) -> None:
+def test_settings_uses_device_iana_timezone(client: TestClient) -> None:
     login(client)
 
     response = client.get("/settings")
 
     assert response.status_code == 200
     assert 'action="/settings/timezone"' in response.text
-    assert 'name="timezone"' in response.text
-    assert 'value="Asia/Seoul"' in response.text
-    assert "기존 알림은 같은 현지 시각을 유지" in response.text
+    assert 'name="timezone" value="Asia/Seoul" data-device-timezone-input' in response.text
+    assert 'data-saved-timezone="Asia/Seoul"' in response.text
+    assert "기기 시간대" in response.text
+    assert "기존 알림은 같은 현지 시각을 유지" not in response.text
+    assert "날짜와 알림에 사용할" not in response.text
+    assert "common-timezones" not in response.text
     assert response.text.count('class="settings-surface"') == 2
+
+    script = client.get("/static/js/app.js")
+    assert "Intl.DateTimeFormat().resolvedOptions().timeZone" in script.text
+    assert "deviceTimezoneForm.requestSubmit()" in script.text
 
 
 def test_timezone_change_updates_existing_reminders_without_changing_local_time(

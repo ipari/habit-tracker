@@ -8,26 +8,23 @@
   <section class="settings-group" aria-labelledby="app-settings-title">
     <h2 id="app-settings-title" class="section-title">앱 설정</h2>
     <div class="settings-surface">
-      <form class="settings-form" method="post" action="/settings/timezone">
+      <form
+        class="settings-form"
+        method="post"
+        action="/settings/timezone"
+        data-device-timezone-form
+        data-saved-timezone="{{ timezone }}"
+      >
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <label for="timezone">시간대</label>
-        <div class="settings-inline-control">
-          <input
-            id="timezone"
-            name="timezone"
-            value="{{ timezone }}"
-            list="common-timezones"
-            maxlength="64"
-            autocomplete="off"
-            aria-describedby="timezone-help{% if timezone_error %} timezone-error{% elif timezone_saved %} timezone-status{% endif %}"
-            required
-          >
-          <button type="submit" class="compact">저장</button>
+        <input type="hidden" name="timezone" value="{{ timezone }}" data-device-timezone-input>
+        <div class="timezone-device-row">
+          <span class="timezone-device-copy">
+            <strong>시간대</strong>
+            <output class="settings-detail" data-device-timezone-value>{{ timezone }}</output>
+          </span>
+          <button type="button" class="secondary compact" data-device-timezone-refresh>기기 시간대</button>
         </div>
-        <datalist id="common-timezones">
-          {% for timezone_name in common_timezones %}<option value="{{ timezone_name }}"></option>{% endfor %}
-        </datalist>
-        <small id="timezone-help" class="settings-detail">날짜와 알림에 사용할 IANA 시간대입니다. 기존 알림은 같은 현지 시각을 유지합니다.</small>
+        <small class="settings-detail" data-device-timezone-status aria-live="polite"></small>
         {% if timezone_error %}<p id="timezone-error" class="settings-inline-error" role="alert">{{ timezone_error }}</p>{% endif %}
         {% if timezone_saved %}<p id="timezone-status" class="settings-inline-success" role="status">시간대를 저장했습니다.</p>{% endif %}
       </form>

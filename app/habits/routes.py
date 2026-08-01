@@ -60,6 +60,20 @@ def date_label(local_date: date) -> str:
     return f"{local_date.year}년 {local_date.month}월 {local_date.day}일 {weekday}요일"
 
 
+def detail_schedule_label(weekdays: tuple[int, ...]) -> str:
+    if weekdays == tuple(range(7)):
+        return "매일"
+    if weekdays == tuple(range(5)):
+        return "주중"
+    if weekdays in {(4, 5), (5, 6)}:
+        return "주말"
+    return " ".join(WEEKDAY_LABELS[weekday] for weekday in weekdays)
+
+
+def habit_start_label(local_date: date) -> str:
+    return f"{local_date.year}년 {local_date.month}월 {local_date.day}일 처음 시작"
+
+
 def normalize_return_to(value: str | None) -> str:
     return "today" if value == "today" else "habits"
 
@@ -88,7 +102,6 @@ def form_context(
     habit: Habit | None = None,
     reminder: Reminder | None = None,
     selected_weekdays: tuple[int, ...] = tuple(range(7)),
-    reminder_timezone: str = "UTC",
     return_to: str = "habits",
     values: dict[str, Any] | None = None,
     error: str | None = None,
@@ -103,7 +116,6 @@ def form_context(
             "reminder_enabled", reminder.is_enabled if reminder else False
         ),
         "reminder_time": resolved_values.get("reminder_time", reminder_time),
-        "reminder_timezone": reminder.timezone if reminder else reminder_timezone,
         "return_to": normalize_return_to(return_to),
         "return_path": return_path(return_to),
         "return_label": "오늘" if normalize_return_to(return_to) == "today" else "습관",
@@ -198,7 +210,7 @@ def new_habit(
     return render_template(
         request,
         "habits/form.html",
-        form_context(reminder_timezone=str(application_timezone(db))),
+        form_context(),
     )
 
 
@@ -210,24 +222,28 @@ def habit_detail(
     local_date = current_local_date(db)
     schedule = effective_schedule(db, habit.id, local_date)
     weekdays = mask_to_weekdays(schedule.weekdays_mask) if schedule else ()
-    schedule_label = (
-        "매일"
-        if len(weekdays) == 7
-        else " · ".join(f"{WEEKDAY_LABELS[weekday]}요일" for weekday in weekdays)
+    start_date = min(
+        (habit_schedule.effective_from for habit_schedule in habit.schedules),
+        default=local_date,
     )
     reminder = habit.reminder
     origin = normalize_return_to(request.query_params.get("from"))
-    reminder_label = "사용 안 함"
-    if reminder is not None and reminder.is_enabled:
-        reminder_label = f"{reminder.local_time.strftime('%H:%M')} · {reminder.timezone}"
     return render_template(
         request,
         "habits/detail.html",
         {
             "habit": habit,
             "streak": habit_streak(db, habit.id, local_date),
-            "schedule_label": schedule_label,
-            "reminder_label": reminder_label,
+            "start_label": habit_start_label(start_date),
+            "schedule_label": detail_schedule_label(weekdays),
+            "time_label": (
+                twelve_hour_time_label(reminder.local_time)
+                if reminder is not None
+                else None
+            ),
+            "reminder_label": (
+                "켜짐" if reminder is not None and reminder.is_enabled else "꺼짐"
+            ),
             "return_to": origin,
             "return_path": return_path(origin),
             "return_label": "오늘" if origin == "today" else "습관",
@@ -263,7 +279,6 @@ def create_habit(
             "habits/form.html",
             form_context(
                 selected_weekdays=selected,
-                reminder_timezone=timezone,
                 values=values,
                 error="요청이 만료되었습니다.",
             ),
@@ -298,7 +313,6 @@ def create_habit(
             "habits/form.html",
             form_context(
                 selected_weekdays=selected,
-                reminder_timezone=timezone,
                 values=values,
                 error=str(exc),
             ),
@@ -311,7 +325,6 @@ def create_habit(
             "habits/form.html",
             form_context(
                 selected_weekdays=selected,
-                reminder_timezone=timezone,
                 values=values,
                 error="저장하지 못했습니다. 다시 시도해 주세요.",
             ),
@@ -337,7 +350,6 @@ def edit_habit(
             habit=habit,
             reminder=reminder,
             selected_weekdays=selected,
-            reminder_timezone=str(application_timezone(db)),
             return_to=origin,
         ),
     )
@@ -397,7 +409,6 @@ def save_habit(
                 habit=habit,
                 reminder=reminder,
                 selected_weekdays=selected,
-                reminder_timezone=timezone,
                 return_to=origin,
                 values=values,
                 error="요청이 만료되었습니다.",
@@ -431,7 +442,6 @@ def save_habit(
                 habit=habit,
                 reminder=reminder,
                 selected_weekdays=selected,
-                reminder_timezone=timezone,
                 return_to=origin,
                 values=values,
                 error=str(exc),
@@ -447,7 +457,6 @@ def save_habit(
                 habit=habit,
                 reminder=reminder,
                 selected_weekdays=selected,
-                reminder_timezone=timezone,
                 return_to=origin,
                 values=values,
                 error="저장하지 못했습니다. 다시 시도해 주세요.",

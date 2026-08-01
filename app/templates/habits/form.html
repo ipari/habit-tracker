@@ -19,7 +19,7 @@
     <p id="emoji-help" class="field-help">비워두면 기본 아이콘이 표시됩니다.</p>
 
     <fieldset>
-      <legend>수행 요일 <span class="required-note">하나 이상 선택</span></legend>
+      <legend>요일 <span class="required-note">하나 이상 선택</span></legend>
       <div class="weekday-grid">
         {% for label in weekday_labels %}
           <label class="weekday-option">
@@ -30,12 +30,13 @@
       </div>
     </fieldset>
 
-    <fieldset class="reminder-settings" aria-describedby="reminder-help">
-      <legend>알림</legend>
+    <fieldset class="reminder-settings">
+      <legend class="sr-only">시간 및 알림</legend>
+      <label for="reminder-time">시간</label>
+      <input id="reminder-time" name="reminder_time" type="time" required value="{{ reminder_time }}">
       <label class="setting-toggle" for="reminder-enabled">
         <span>
           <strong>알림 사용</strong>
-          <small>선택한 요일과 현지 시간에 알려드려요.</small>
         </span>
         <input
           id="reminder-enabled"
@@ -46,13 +47,7 @@
           {% if habit and habit.archived_at %}disabled{% endif %}
         >
       </label>
-      <p id="reminder-help" class="field-help reminder-help">알림을 받으려면 설정 화면에서 이 기기의 알림 연결도 완료해야 합니다.</p>
       {% if habit and habit.archived_at %}<p class="field-help">보관된 습관의 알림은 활성화할 수 없습니다.</p>{% endif %}
-
-      <label for="reminder-time">알림 시간</label>
-      <input id="reminder-time" name="reminder_time" type="time" required value="{{ reminder_time }}">
-      <p class="field-help">알림은 항상 위에서 선택한 수행 요일에 맞춰 발송됩니다.</p>
-      <p class="timezone-note">기준 시간대: <strong>{{ reminder_timezone }}</strong></p>
     </fieldset>
 
     <fieldset>

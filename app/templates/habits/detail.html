@@ -14,14 +14,17 @@
   </header>
 
   <section class="detail-streak" aria-label="현재 연속 달성">
-    <strong>{{ streak }}</strong>
-    <span>회 연속 달성</span>
+    <div>
+      <strong>{{ streak }}</strong>
+      <span>회 연속 달성</span>
+    </div>
+    <p>{{ start_label }}</p>
   </section>
 
   <div class="detail-actions" aria-label="습관 작업">
-    <a class="detail-action primary-action" href="/habits/{{ habit.id }}/share?from={{ return_to }}">
+    <a class="detail-action" href="/habits/{{ habit.id }}/share?from={{ return_to }}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V3m0 0L7.5 7.5M12 3l4.5 4.5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
-      <span>성과 공유</span>
+      <span>습관 공유</span>
     </a>
     <a class="detail-action" href="/habits/{{ habit.id }}/edit?from={{ return_to }}">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5.5 4 4M4 20l3.7-.8L19 7.9a1.4 1.4 0 0 0 0-2l-.9-.9a1.4 1.4 0 0 0-2 0L4.8 16.3 4 20Z"/></svg>
@@ -31,24 +34,30 @@
 
   <section class="detail-list" aria-label="습관 설정 요약">
     <div class="detail-row">
-      <span>수행 요일</span>
+      <span>요일</span>
       <strong>{{ schedule_label }}</strong>
     </div>
+    {% if time_label %}
+      <div class="detail-row">
+        <span>시간</span>
+        <strong>{{ time_label }}</strong>
+      </div>
+    {% endif %}
     <div class="detail-row">
       <span>알림</span>
       <strong>{{ reminder_label }}</strong>
     </div>
-    <div class="detail-row">
-      <span>공유 배경</span>
-      <strong>{{ habit.background_preset }}</strong>
-    </div>
   </section>
 
   {% if habit.archived_at is none %}
-    <form class="archive-form detail-archive" method="post" action="/habits/{{ habit.id }}/archive">
+    <form
+      class="archive-form detail-archive"
+      method="post"
+      action="/habits/{{ habit.id }}/archive"
+      data-confirm="과거 달성 기록과 일정은 삭제되지 않습니다. 습관을 보관할까요?"
+    >
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button class="danger-secondary" type="submit">습관 보관</button>
-      <p class="muted">과거 달성 기록과 일정은 삭제되지 않습니다.</p>
     </form>
   {% endif %}
 {% endblock %}

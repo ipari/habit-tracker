@@ -12,22 +12,6 @@ from app.web import render_template, request_has_valid_csrf
 
 router = APIRouter()
 
-COMMON_TIMEZONES = (
-    "Asia/Seoul",
-    "Asia/Tokyo",
-    "Asia/Shanghai",
-    "Asia/Singapore",
-    "Europe/London",
-    "Europe/Paris",
-    "America/New_York",
-    "America/Chicago",
-    "America/Denver",
-    "America/Los_Angeles",
-    "Australia/Sydney",
-    "UTC",
-)
-
-
 def validate_timezone(value: str) -> str:
     timezone = value.strip()
     if not timezone or len(timezone) > 64:
@@ -49,7 +33,6 @@ def settings_context(
     return {
         "user": identity,
         "timezone": timezone,
-        "common_timezones": COMMON_TIMEZONES,
         "timezone_error": error,
         "timezone_saved": saved,
     }

@@ -29,6 +29,48 @@ window.addEventListener("online", updateConnectionStatus);
 window.addEventListener("offline", updateConnectionStatus);
 updateConnectionStatus();
 
+const deviceTimezoneForm = document.querySelector("[data-device-timezone-form]");
+const deviceTimezoneInput = document.querySelector("[data-device-timezone-input]");
+const deviceTimezoneValue = document.querySelector("[data-device-timezone-value]");
+const deviceTimezoneStatus = document.querySelector("[data-device-timezone-status]");
+const deviceTimezoneRefresh = document.querySelector("[data-device-timezone-refresh]");
+
+function detectedDeviceTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return "";
+  }
+}
+
+function syncDeviceTimezone() {
+  if (!deviceTimezoneForm || !deviceTimezoneInput || !deviceTimezoneValue) {
+    return;
+  }
+  const detectedTimezone = detectedDeviceTimezone();
+  if (!detectedTimezone) {
+    if (deviceTimezoneStatus) {
+      deviceTimezoneStatus.textContent = "기기 시간대를 확인할 수 없습니다.";
+    }
+    return;
+  }
+  deviceTimezoneValue.textContent = detectedTimezone;
+  deviceTimezoneInput.value = detectedTimezone;
+  if (detectedTimezone === deviceTimezoneForm.dataset.savedTimezone) {
+    if (deviceTimezoneStatus) {
+      deviceTimezoneStatus.textContent = "기기 시간대로 자동 설정됨";
+    }
+    return;
+  }
+  if (deviceTimezoneStatus) {
+    deviceTimezoneStatus.textContent = "기기 시간대를 적용하는 중…";
+  }
+  deviceTimezoneForm.requestSubmit();
+}
+
+deviceTimezoneRefresh?.addEventListener("click", syncDeviceTimezone);
+syncDeviceTimezone();
+
 document.body.addEventListener("htmx:beforeRequest", (event) => {
   blockOfflineMutation(event, event.detail.requestConfig.verb);
 });
@@ -37,6 +79,13 @@ document.addEventListener(
   "submit",
   (event) => {
     blockOfflineMutation(event, event.target.method || "GET");
+    if (event.defaultPrevented) {
+      return;
+    }
+    const message = event.target.dataset.confirm;
+    if (message && !window.confirm(message)) {
+      event.preventDefault();
+    }
   },
   true,
 );

@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app.db.models import Habit, HabitCompletion, HabitSchedule, Reminder
+from app.habits.routes import detail_schedule_label
 from app.habits.service import current_local_date
 from tests.conftest import client_database, csrf_token, login
 
@@ -112,6 +113,8 @@ def test_today_orders_incomplete_habits_by_time_and_reranks_after_completion(
 
 def test_habit_detail_collects_management_actions(client: TestClient) -> None:
     habit_id = create_habit(client)
+    with client_database(client).session_factory() as db:
+        today = current_local_date(db)
 
     detail = client.get(f"/habits/{habit_id}")
 
@@ -119,14 +122,36 @@ def test_habit_detail_collects_management_actions(client: TestClient) -> None:
     assert "물 마시기" in detail.text
     assert "<strong>0</strong>" in detail.text
     assert "회 연속 달성" in detail.text
+    assert f"{today.year}년 {today.month}월 {today.day}일 처음 시작" in detail.text
     assert f'href="/habits/{habit_id}/share?from=habits"' in detail.text
+    assert "습관 공유" in detail.text
+    assert "성과 공유" not in detail.text
+    assert "primary-action" not in detail.text
     assert f'href="/habits/{habit_id}/edit?from=habits"' in detail.text
     assert f'action="/habits/{habit_id}/archive"' in detail.text
+    archive_confirmation = (
+        'data-confirm="과거 달성 기록과 일정은 삭제되지 않습니다. 습관을 보관할까요?"'
+    )
+    assert archive_confirmation in detail.text
+    assert "<span>요일</span>" in detail.text
+    assert "<span>시간</span>" in detail.text
+    assert "9:00 AM" in detail.text
+    assert "<span>알림</span>" in detail.text
+    assert "<strong>꺼짐</strong>" in detail.text
+    assert "공유 배경" not in detail.text
 
     management = client.get("/habits")
     assert f'href="/habits/{habit_id}?from=habits"' in management.text
     assert f'href="/habits/{habit_id}/share"' not in management.text
     assert f'href="/habits/{habit_id}/edit"' not in management.text
+
+
+def test_habit_detail_uses_compact_schedule_labels() -> None:
+    assert detail_schedule_label((0, 2, 4)) == "월 수 금"
+    assert detail_schedule_label(tuple(range(5))) == "주중"
+    assert detail_schedule_label((4, 5)) == "주말"
+    assert detail_schedule_label((5, 6)) == "주말"
+    assert detail_schedule_label(tuple(range(7))) == "매일"
 
 
 def test_habit_list_summarizes_schedule_streak_and_reminder(client: TestClient) -> None:

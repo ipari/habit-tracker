@@ -248,7 +248,7 @@ def test_calendar_page_and_past_completion_flow(client: TestClient) -> None:
         assert completion is not None
 
 
-def test_future_schedule_uses_visual_indicator_without_repeated_text(
+def test_future_schedule_omits_marker_and_future_legend(
     client: TestClient,
 ) -> None:
     _habit_id, today = seed_daily_habit(client)
@@ -260,7 +260,13 @@ def test_future_schedule_uses_visual_indicator_without_repeated_text(
     )
 
     assert page.status_code == 200
-    assert "future-schedule-indicator" in page.text
+    assert "future-schedule-indicator" not in page.text
+    assert "앞으로의 예정일" not in page.text
+    assert "부분 달성" in page.text
+    assert ">미달성<" in page.text
+    assert "일부·추가 달성" not in page.text
+    assert "지난 예정일 미달성" not in page.text
+    assert "과거의 달성 기록을 확인하고 수정할 수 있어요" not in page.text
     assert ">예정</span>" not in page.text
 
 
