@@ -1,6 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
   <title id="title">습관 기록</title>
-  <rect width="512" height="512" rx="112" fill="#0a0a0a"/>
-  <circle cx="256" cy="256" r="136" fill="none" stroke="#fff" stroke-width="38"/>
-  <path d="m183 258 50 50 101-112" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="42"/>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="1" stop-color="#fafafa"/>
+    </linearGradient>
+    <filter id="tile-shadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#111827" flood-opacity=".18"/>
+    </filter>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="104" fill="url(#tile)" stroke="#e8e8ea" stroke-width="4" filter="url(#tile-shadow)"/>
+  <circle cx="256" cy="256" r="142" fill="#34c759"/>
+  <path d="m194 258 42 42 82-92" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="34"/>
 </svg>

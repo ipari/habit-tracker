@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">습관 기록</title>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fafafa"/></linearGradient>
+  </defs>
+  <rect x="12" y="12" width="488" height="488" rx="112" fill="url(#tile)"/>
+  <circle cx="256" cy="256" r="190" fill="#34c759"/>
+  <path d="m172 260 55 55 112-126" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="48"/>
+</svg>

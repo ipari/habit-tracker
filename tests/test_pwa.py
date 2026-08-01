@@ -17,6 +17,8 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     assert 'src="http://testserver/static/vendor/htmx-2.0.10.min.js"' in response.text
     assert 'src="http://testserver/static/js/theme.js?v=1"' in response.text
     assert 'href="http://testserver/static/css/app.css?v=34"' in response.text
+    assert 'href="http://testserver/static/icons/favicon.svg?v=3"' in response.text
+    assert 'href="http://testserver/static/icons/app-icon-180.png?v=5"' in response.text
 
     stylesheet = client.get("/static/css/app.css")
     assert "scrollbar-gutter: stable both-edges" in stylesheet.text
@@ -38,7 +40,17 @@ def test_manifest_defines_standalone_app(client: TestClient) -> None:
     assert manifest["display"] == "standalone"
     assert manifest["icons"][0]["sizes"] == "192x192"
     assert manifest["icons"][1]["sizes"] == "512x512"
-    assert "maskable" in manifest["icons"][1]["purpose"]
+    assert any(icon["purpose"] == "maskable" for icon in manifest["icons"])
+    assert all("?v=5" in icon["src"] for icon in manifest["icons"])
+
+    dock_icon = client.get("/static/icons/app-icon-512.png")
+    assert dock_icon.status_code == 200
+    assert dock_icon.content[25] == 6  # PNG color type 6 is RGBA.
+
+    favicon = client.get("/static/icons/favicon.svg")
+    assert favicon.status_code == 200
+    assert 'r="190"' in favicon.text
+    assert 'fill="#34c759"' in favicon.text
 
 
 def test_service_worker_controls_app_scope_without_caching_html(client: TestClient) -> None:
@@ -74,6 +86,9 @@ def test_installed_app_offers_notification_permission_after_user_action(
     assert 'self.addEventListener("notificationclick"' in worker.text
     assert '"/static/js/share.js?v=2"' in worker.text
     assert '"/static/js/theme.js?v=1"' in worker.text
+    assert '"/static/icons/favicon.svg?v=3"' in worker.text
+    assert '"/static/icons/app-icon-512.png?v=5"' in worker.text
+    assert '"/static/icons/app-icon-maskable-512.png?v=5"' in worker.text
 
     settings = client.get("/settings")
     assert 'data-notification-open' in settings.text

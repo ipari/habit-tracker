@@ -1,4 +1,4 @@
-const CACHE_NAME = "habit-tracker-static-v34";
+const CACHE_NAME = "habit-tracker-static-v38";
 const STATIC_ASSETS = [
   "/static/css/app.css?v=34",
   "/static/js/theme.js?v=1",
@@ -7,10 +7,12 @@ const STATIC_ASSETS = [
   "/static/js/password-visibility.js",
   "/static/js/share.js?v=2",
   "/static/vendor/htmx-2.0.10.min.js",
-  "/static/icons/app-icon.svg",
-  "/static/icons/app-icon-180.png",
-  "/static/icons/app-icon-192.png",
-  "/static/icons/app-icon-512.png",
+  "/static/icons/app-icon.svg?v=5",
+  "/static/icons/favicon.svg?v=3",
+  "/static/icons/app-icon-180.png?v=5",
+  "/static/icons/app-icon-192.png?v=5",
+  "/static/icons/app-icon-512.png?v=5",
+  "/static/icons/app-icon-maskable-512.png?v=5",
 ];
 
 self.addEventListener("install", (event) => {
@@ -63,8 +65,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: payload.body || "오늘의 습관을 확인해 보세요.",
-      icon: "/static/icons/app-icon-192.png",
-      badge: "/static/icons/app-icon-192.png",
+      icon: "/static/icons/app-icon-192.png?v=5",
+      badge: "/static/icons/app-icon-192.png?v=5",
       tag: payload.tag || "habit-reminder",
       data: { url: payload.url || "/today" },
     }),
