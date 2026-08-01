@@ -246,6 +246,7 @@ legend { margin-bottom: .65rem; font-weight: 700; }
   --threads-secondary: #777;
   --threads-border: #e6e6e6;
   --threads-strong: #000;
+  --completion-accent: #34c759;
 }
 
 body {
@@ -323,7 +324,7 @@ input {
 .habit-card { grid-template-columns: minmax(0, 1fr) auto; }
 .habit-card.completed { border-color: var(--threads-border); background: var(--threads-raised); }
 .habit-toggle { border-color: #aaa; color: var(--threads-bg); }
-.habit-toggle[aria-pressed="true"] { border-color: var(--threads-strong); background: var(--threads-strong); }
+.habit-toggle[aria-pressed="true"] { border-color: var(--completion-accent); background: var(--completion-accent); color: #fff; }
 .streak { color: var(--threads-secondary); font-size: .86rem; font-weight: 500; }
 
 .default-habit-icon,
@@ -463,6 +464,7 @@ input {
     --threads-secondary: #999;
     --threads-border: #282828;
     --threads-strong: #fff;
+    --completion-accent: #30d158;
   }
 
   .habit-card, .management-card { background: transparent; }
@@ -552,9 +554,9 @@ body { padding-bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
 .habit-card .habit-toggle:hover { border-color: #aaa; background: transparent; }
 .habit-card .habit-toggle[aria-pressed="true"],
 .habit-card .habit-toggle[aria-pressed="true"]:hover {
-  border-color: var(--threads-strong);
-  background: var(--threads-strong);
-  color: var(--threads-bg);
+  border-color: var(--completion-accent);
+  background: var(--completion-accent);
+  color: #fff;
 }
 
 .management-card { display: block; padding: 0; }
