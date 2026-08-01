@@ -17,7 +17,10 @@ def test_settings_uses_device_iana_timezone(client: TestClient) -> None:
     assert 'action="/settings/timezone"' in response.text
     assert 'name="timezone" value="Asia/Seoul" data-device-timezone-input' in response.text
     assert 'data-saved-timezone="Asia/Seoul"' in response.text
-    assert "기기 시간대" in response.text
+    assert '<span>시간대</span>' in response.text
+    assert '<span class="settings-value">Asia/Seoul</span>' in response.text
+    assert "기기 시간대" not in response.text
+    assert "기기 시간대로 자동 설정됨" not in response.text
     assert "기존 알림은 같은 현지 시각을 유지" not in response.text
     assert "날짜와 알림에 사용할" not in response.text
     assert "common-timezones" not in response.text
@@ -52,7 +55,7 @@ def test_timezone_change_updates_existing_reminders_without_changing_local_time(
         assert reminder.local_time == time(9, 0)
 
     saved_page = client.get(response.headers["location"])
-    assert "시간대를 저장했습니다." in saved_page.text
+    assert '<span class="settings-value">America/New_York</span>' in saved_page.text
 
 
 def test_timezone_change_validates_csrf_and_iana_name(client: TestClient) -> None:

@@ -9,7 +9,7 @@
     <h2 id="app-settings-title" class="section-title">앱 설정</h2>
     <div class="settings-surface">
       <form
-        class="settings-form"
+        hidden
         method="post"
         action="/settings/timezone"
         data-device-timezone-form
@@ -17,17 +17,12 @@
       >
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="timezone" value="{{ timezone }}" data-device-timezone-input>
-        <div class="timezone-device-row">
-          <span class="timezone-device-copy">
-            <strong>시간대</strong>
-            <output class="settings-detail" data-device-timezone-value>{{ timezone }}</output>
-          </span>
-          <button type="button" class="secondary compact" data-device-timezone-refresh>기기 시간대</button>
-        </div>
-        <small class="settings-detail" data-device-timezone-status aria-live="polite"></small>
-        {% if timezone_error %}<p id="timezone-error" class="settings-inline-error" role="alert">{{ timezone_error }}</p>{% endif %}
-        {% if timezone_saved %}<p id="timezone-status" class="settings-inline-success" role="status">시간대를 저장했습니다.</p>{% endif %}
       </form>
+      <div class="settings-row">
+        <span>시간대</span>
+        <span class="settings-value">{{ timezone }}</span>
+      </div>
+      {% if timezone_error %}<p id="timezone-error" class="settings-inline-error settings-surface-message" role="alert">{{ timezone_error }}</p>{% endif %}
       <div class="settings-row">
         <span>
           알림 권한

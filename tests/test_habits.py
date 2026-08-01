@@ -124,13 +124,14 @@ def test_habit_detail_collects_management_actions(client: TestClient) -> None:
     assert "회 연속 달성" in detail.text
     assert f"{today.year}년 {today.month}월 {today.day}일 처음 시작" in detail.text
     assert f'href="/habits/{habit_id}/share?from=habits"' in detail.text
-    assert "습관 공유" in detail.text
+    assert "<span>공유</span>" in detail.text
+    assert "습관 공유" not in detail.text
     assert "성과 공유" not in detail.text
     assert "primary-action" not in detail.text
     assert f'href="/habits/{habit_id}/edit?from=habits"' in detail.text
     assert f'action="/habits/{habit_id}/archive"' in detail.text
     archive_confirmation = (
-        'data-confirm="과거 달성 기록과 일정은 삭제되지 않습니다. 습관을 보관할까요?"'
+        'data-confirm="과거 달성 기록과 일정은 삭제되지 않습니다. 습관을 삭제할까요?"'
     )
     assert archive_confirmation in detail.text
     assert "<span>요일</span>" in detail.text
@@ -147,7 +148,7 @@ def test_habit_detail_collects_management_actions(client: TestClient) -> None:
 
 
 def test_habit_detail_uses_compact_schedule_labels() -> None:
-    assert detail_schedule_label((0, 2, 4)) == "월 수 금"
+    assert detail_schedule_label((0, 2, 4)) == "월 · 수 · 금"
     assert detail_schedule_label(tuple(range(5))) == "주중"
     assert detail_schedule_label((4, 5)) == "주말"
     assert detail_schedule_label((5, 6)) == "주말"

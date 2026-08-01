@@ -31,9 +31,6 @@ updateConnectionStatus();
 
 const deviceTimezoneForm = document.querySelector("[data-device-timezone-form]");
 const deviceTimezoneInput = document.querySelector("[data-device-timezone-input]");
-const deviceTimezoneValue = document.querySelector("[data-device-timezone-value]");
-const deviceTimezoneStatus = document.querySelector("[data-device-timezone-status]");
-const deviceTimezoneRefresh = document.querySelector("[data-device-timezone-refresh]");
 
 function detectedDeviceTimezone() {
   try {
@@ -44,31 +41,20 @@ function detectedDeviceTimezone() {
 }
 
 function syncDeviceTimezone() {
-  if (!deviceTimezoneForm || !deviceTimezoneInput || !deviceTimezoneValue) {
+  if (!deviceTimezoneForm || !deviceTimezoneInput) {
     return;
   }
   const detectedTimezone = detectedDeviceTimezone();
   if (!detectedTimezone) {
-    if (deviceTimezoneStatus) {
-      deviceTimezoneStatus.textContent = "기기 시간대를 확인할 수 없습니다.";
-    }
     return;
   }
-  deviceTimezoneValue.textContent = detectedTimezone;
   deviceTimezoneInput.value = detectedTimezone;
   if (detectedTimezone === deviceTimezoneForm.dataset.savedTimezone) {
-    if (deviceTimezoneStatus) {
-      deviceTimezoneStatus.textContent = "기기 시간대로 자동 설정됨";
-    }
     return;
-  }
-  if (deviceTimezoneStatus) {
-    deviceTimezoneStatus.textContent = "기기 시간대를 적용하는 중…";
   }
   deviceTimezoneForm.requestSubmit();
 }
 
-deviceTimezoneRefresh?.addEventListener("click", syncDeviceTimezone);
 syncDeviceTimezone();
 
 document.body.addEventListener("htmx:beforeRequest", (event) => {

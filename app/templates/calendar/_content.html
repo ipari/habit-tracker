@@ -43,8 +43,7 @@
               >
                 <span class="day-number">{{ day.local_date.day }}</span>
                 <span class="day-summary" aria-hidden="true">
-                  {% if not day.is_future and not day.is_today and day.scheduled_count %}{{ day.completed_count }}/{{ day.scheduled_count }}{% endif %}
-                  {% if day.extra_count %}+{{ day.extra_count }}{% endif %}
+                  {% if day.state in ('complete', 'partial', 'missed') %}<i class="calendar-status-dot {{ day.state }}"></i>{% endif %}
                 </span>
               </a>
             </div>
@@ -52,12 +51,12 @@
         </div>
       {% endfor %}
     </div>
-    <div class="calendar-legend" aria-label="달력 상태 범례">
-      <span><i class="legend-dot complete"></i>모두 달성</span>
-      <span><i class="legend-dot partial"></i>부분 달성</span>
-      <span><i class="legend-dot missed"></i>미달성</span>
-    </div>
   </section>
+  <div class="calendar-legend" aria-label="달력 상태 범례">
+    <span><i class="legend-dot complete"></i>모두 달성</span>
+    <span><i class="legend-dot partial"></i>부분 달성</span>
+    <span><i class="legend-dot missed"></i>미달성</span>
+  </div>
 
   <div id="calendar-sync-error" class="error-slot" role="alert" aria-live="assertive">{% if save_error %}저장하지 못했습니다. 다시 시도해 주세요.{% endif %}</div>
 

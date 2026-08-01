@@ -67,7 +67,7 @@ def detail_schedule_label(weekdays: tuple[int, ...]) -> str:
         return "주중"
     if weekdays in {(4, 5), (5, 6)}:
         return "주말"
-    return " ".join(WEEKDAY_LABELS[weekday] for weekday in weekdays)
+    return " · ".join(WEEKDAY_LABELS[weekday] for weekday in weekdays)
 
 
 def habit_start_label(local_date: date) -> str:
