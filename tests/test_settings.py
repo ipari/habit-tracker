@@ -18,6 +18,7 @@ def test_settings_shows_editable_iana_timezone(client: TestClient) -> None:
     assert 'name="timezone"' in response.text
     assert 'value="Asia/Seoul"' in response.text
     assert "기존 알림은 같은 현지 시각을 유지" in response.text
+    assert response.text.count('class="settings-surface"') == 2
 
 
 def test_timezone_change_updates_existing_reminders_without_changing_local_time(

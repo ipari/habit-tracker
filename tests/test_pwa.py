@@ -15,7 +15,7 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     ) in response.text
     assert 'rel="manifest" href="http://testserver/static/manifest.webmanifest"' in response.text
     assert 'src="http://testserver/static/vendor/htmx-2.0.10.min.js"' in response.text
-    assert 'href="http://testserver/static/css/app.css?v=21"' in response.text
+    assert 'href="http://testserver/static/css/app.css?v=22"' in response.text
     assert "cdn.jsdelivr.net" not in response.text
     assert 'id="offline-status"' in response.text
 
