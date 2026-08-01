@@ -103,8 +103,51 @@
       </div>
     {% else %}
       <div class="card empty compact-empty">
-        <p>이 날짜에 적용되는 습관이 없어요.</p>
+        <p>이 날짜에 예정된 습관이 없어요.</p>
       </div>
+    {% endif %}
+
+    {% if calendar.additional_habits %}
+      <details class="additional-habits">
+        <summary>
+          <span class="add-habit-icon" aria-hidden="true">+</span>
+          <span>다른 습관 기록</span>
+          <svg class="additional-habits-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
+        </summary>
+        <div class="additional-habit-list">
+          {% for item in calendar.additional_habits %}
+            <article class="calendar-habit-card additional-habit-card">
+              {% from "_habit_icon.html" import habit_icon %}
+              {% from "_habit_metadata.html" import habit_metadata %}
+              {{ habit_icon(item.habit.emoji) }}
+              <div class="calendar-habit-content">
+                <h3>{{ item.habit.name }}</h3>
+                {{ habit_metadata(item) }}
+              </div>
+              <form
+                method="post"
+                action="/calendar/habits/{{ item.habit.id }}/completions/{{ calendar.selected_date.isoformat() }}"
+                hx-post="/calendar/habits/{{ item.habit.id }}/completions/{{ calendar.selected_date.isoformat() }}"
+                hx-target="#calendar-content"
+                hx-swap="outerHTML"
+                hx-disabled-elt="button"
+              >
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="month" value="{{ calendar.month_start.strftime('%Y-%m') }}">
+                <input type="hidden" name="completed" value="true">
+                <button
+                  class="habit-toggle calendar-habit-toggle"
+                  type="submit"
+                  aria-pressed="false"
+                  aria-label="{{ item.habit.name }} 추가 달성 기록"
+                >
+                  <span class="checkmark" aria-hidden="true"></span>
+                </button>
+              </form>
+            </article>
+          {% endfor %}
+        </div>
+      </details>
     {% endif %}
   </section>
 </div>

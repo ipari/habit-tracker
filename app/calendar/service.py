@@ -60,6 +60,7 @@ class CalendarView:
     selected_label: str
     selected_is_future: bool
     habits: list[CalendarHabit]
+    additional_habits: list[CalendarHabit]
 
 
 def shift_month(month_start: date, months: int) -> date:
@@ -185,6 +186,7 @@ def build_calendar_view(
         weeks.append(week)
 
     selected_habits: list[CalendarHabit] = []
+    additional_habits: list[CalendarHabit] = []
     for habit in habits:
         window = schedule_for_date(schedules.get(habit.id, []), selected_date)
         if window is None or not _habit_visible_on(db, habit, selected_date):
@@ -203,27 +205,32 @@ def build_calendar_view(
             status_text = "예정일 미달성"
         else:
             status_text = "비예정일 미기록"
-        selected_habits.append(
-            CalendarHabit(
-                habit=habit,
-                scheduled=scheduled,
-                completed=completed,
-                status_text=status_text,
-                streak=habit_streak(db, habit.id, today),
-                schedule_label=compact_schedule_label(
-                    mask_to_weekdays(window.weekdays_mask)
-                ),
-                reminder_time_label=(
-                    twelve_hour_time_label(habit.reminder.local_time)
-                    if habit.reminder is not None
-                    else None
-                ),
-                reminder_enabled=(
-                    habit.reminder.is_enabled if habit.reminder is not None else False
-                ),
-            )
+        item = CalendarHabit(
+            habit=habit,
+            scheduled=scheduled,
+            completed=completed,
+            status_text=status_text,
+            streak=habit_streak(db, habit.id, today),
+            schedule_label=compact_schedule_label(
+                mask_to_weekdays(window.weekdays_mask)
+            ),
+            reminder_time_label=(
+                twelve_hour_time_label(habit.reminder.local_time)
+                if habit.reminder is not None
+                else None
+            ),
+            reminder_enabled=(
+                habit.reminder.is_enabled if habit.reminder is not None else False
+            ),
         )
+        if scheduled or completed:
+            selected_habits.append(item)
+        elif selected_date <= today:
+            additional_habits.append(item)
     selected_habits.sort(
+        key=lambda item: habit_card_sort_key(item.completed, item.habit)
+    )
+    additional_habits.sort(
         key=lambda item: habit_card_sort_key(item.completed, item.habit)
     )
 
@@ -240,4 +247,5 @@ def build_calendar_view(
         ),
         selected_is_future=selected_date > today,
         habits=selected_habits,
+        additional_habits=additional_habits,
     )

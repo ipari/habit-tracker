@@ -89,6 +89,63 @@ def test_calendar_marks_unscheduled_completion_as_extra(client: TestClient) -> N
     assert selected_day.extra_count == 1
 
 
+def test_calendar_records_an_unscheduled_habit_from_the_additional_section(
+    client: TestClient,
+) -> None:
+    database = client_database(client)
+    with database.session_factory() as db:
+        today = current_local_date(db)
+        non_today_weekday = (today.weekday() + 1) % 7
+        habit = Habit(name="수영", emoji="🏊", background_preset="ocean")
+        db.add(habit)
+        db.flush()
+        habit_id = habit.id
+        db.add(
+            HabitSchedule(
+                habit=habit,
+                weekdays_mask=weekdays_to_mask([non_today_weekday]),
+                effective_from=today - timedelta(days=7),
+            )
+        )
+        db.commit()
+        view = build_calendar_view(db, date(today.year, today.month, 1), today, today)
+
+    assert view.habits == []
+    assert [item.habit.name for item in view.additional_habits] == ["수영"]
+
+    login(client)
+    token = csrf_token(client)
+    month = today.strftime("%Y-%m")
+    page = client.get(f"/calendar?month={month}&selected={today.isoformat()}")
+    assert "이 날짜에 예정된 습관이 없어요." in page.text
+    assert "다른 습관 기록" in page.text
+    assert 'aria-label="수영 추가 달성 기록"' in page.text
+    additional_button = page.text.split(
+        'aria-label="수영 추가 달성 기록"', 1
+    )[0].rsplit("<button", 1)[1]
+    assert 'class="habit-toggle calendar-habit-toggle"' in additional_button
+    assert 'aria-pressed="false"' in additional_button
+
+    response = client.post(
+        f"/calendar/habits/{habit_id}/completions/{today.isoformat()}",
+        data={"completed": "true", "csrf_token": token, "month": month},
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 200
+    assert "수영" in response.text
+    assert 'aria-label="수영 완료 취소"' in response.text
+    assert "다른 습관 기록" not in response.text
+
+    response = client.post(
+        f"/calendar/habits/{habit_id}/completions/{today.isoformat()}",
+        data={"completed": "false", "csrf_token": token, "month": month},
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 200
+    assert "다른 습관 기록" in response.text
+    assert 'aria-label="수영 추가 달성 기록"' in response.text
+
+
 def test_calendar_orders_incomplete_habits_by_time_and_shows_metadata(
     client: TestClient,
 ) -> None:
