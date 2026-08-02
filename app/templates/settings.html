@@ -23,16 +23,6 @@
         <span class="settings-value">{{ timezone }}</span>
       </div>
       {% if timezone_error %}<p id="timezone-error" class="settings-inline-error settings-surface-message" role="alert">{{ timezone_error }}</p>{% endif %}
-      <div class="settings-row">
-        <span>
-          알림 권한
-          <small id="notification-permission-status" class="settings-detail" aria-live="polite"></small>
-        </span>
-        <span class="settings-row-actions">
-          <button type="button" class="secondary compact" data-notification-open>설정</button>
-          <button type="button" class="danger-secondary compact" data-notification-disconnect hidden>연결 해제</button>
-        </span>
-      </div>
       <div class="settings-row settings-theme-row">
         <span>화면 모드</span>
         <fieldset class="theme-options" data-theme-options>
@@ -56,6 +46,16 @@
             </span>
           </label>
         </fieldset>
+      </div>
+      <div class="settings-row">
+        <span>
+          알림 권한
+          <small id="notification-permission-status" class="settings-detail" aria-live="polite"></small>
+        </span>
+        <span class="settings-row-actions">
+          <button type="button" class="secondary compact" data-notification-open>설정</button>
+          <button type="button" class="danger-secondary compact" data-notification-disconnect hidden>연결 해제</button>
+        </span>
       </div>
     </div>
   </section>
