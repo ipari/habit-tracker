@@ -17,6 +17,9 @@ from app.habits.service import (
     current_local_date,
     effective_schedule,
     habit_streak,
+    latest_schedule,
+    pause_schedule,
+    restart_habit,
     set_completion,
     today_habits,
     twelve_hour_time_label,
@@ -85,6 +88,8 @@ def return_path(value: str | None) -> str:
 
 def habit_list_item(db: DbSession, habit: Habit, local_date: date) -> HabitListItem:
     schedule = effective_schedule(db, habit.id, local_date)
+    if schedule is None and habit.archived_at is not None:
+        schedule = latest_schedule(db, habit.id)
     weekdays = mask_to_weekdays(schedule.weekdays_mask) if schedule else ()
     reminder = habit.reminder
     return HabitListItem(
@@ -114,7 +119,7 @@ def form_context(
         "reminder": reminder,
         "selected_weekdays": selected_weekdays,
         "reminder_enabled": resolved_values.get(
-            "reminder_enabled", reminder.is_enabled if reminder else False
+            "reminder_enabled", reminder.is_enabled if reminder else True
         ),
         "reminder_time": resolved_values.get("reminder_time", reminder_time),
         "return_to": normalize_return_to(return_to),
@@ -243,6 +248,8 @@ def habit_detail(
     habit = habit_or_404(db, habit_id)
     local_date = current_local_date(db)
     schedule = effective_schedule(db, habit.id, local_date)
+    if schedule is None and habit.archived_at is not None:
+        schedule = latest_schedule(db, habit.id)
     weekdays = mask_to_weekdays(schedule.weekdays_mask) if schedule else ()
     start_date = min(
         (habit_schedule.effective_from for habit_schedule in habit.schedules),
@@ -266,6 +273,7 @@ def habit_detail(
             "reminder_label": (
                 "켜짐" if reminder is not None and reminder.is_enabled else "꺼짐"
             ),
+            "archived": request.query_params.get("archived") == "1",
             "return_to": origin,
             "return_path": return_path(origin),
             "return_label": "오늘" if origin == "today" else "습관",
@@ -362,6 +370,8 @@ def edit_habit(
     habit = habit_or_404(db, habit_id)
     local_date = current_local_date(db)
     schedule = effective_schedule(db, habit.id, local_date)
+    if schedule is None and habit.archived_at is not None:
+        schedule = latest_schedule(db, habit.id)
     selected = mask_to_weekdays(schedule.weekdays_mask) if schedule else ()
     reminder = habit.reminder
     origin = normalize_return_to(request.query_params.get("from"))
@@ -504,7 +514,13 @@ def archive_habit(
     if not request_has_valid_csrf(request, csrf_token):
         return HTMLResponse("요청이 만료되었습니다.", status_code=403)
     habit = habit_or_404(db, habit_id)
+    if habit.archived_at is not None:
+        return RedirectResponse(
+            f"/habits/{habit.id}?archived=1", status_code=status.HTTP_303_SEE_OTHER
+        )
+    archived_on = current_local_date(db)
     habit.archived_at = datetime.now(UTC)
+    pause_schedule(db, habit, archived_on)
     if habit.reminder is not None:
         habit.reminder.is_enabled = False
     try:
@@ -512,6 +528,35 @@ def archive_habit(
     except SQLAlchemyError:
         db.rollback()
         return HTMLResponse("보관하지 못했습니다. 다시 시도해 주세요.", status_code=503)
+    return RedirectResponse(
+        f"/habits/{habit.id}?archived=1", status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
+@router.post("/habits/{habit_id}/restore")
+def restore_habit(
+    habit_id: int,
+    request: Request,
+    db: DbSession,
+    _identity: CurrentIdentity,
+    csrf_token: Annotated[str, Form()],
+) -> Response:
+    if not request_has_valid_csrf(request, csrf_token):
+        return HTMLResponse("요청이 만료되었습니다.", status_code=403)
+    habit = habit_or_404(db, habit_id)
+    if habit.archived_at is None:
+        return RedirectResponse(
+            f"/habits/{habit.id}", status_code=status.HTTP_303_SEE_OTHER
+        )
+    try:
+        restart_habit(db, habit, current_local_date(db))
+        db.commit()
+    except (SQLAlchemyError, ValueError):
+        db.rollback()
+        return HTMLResponse(
+            "습관을 다시 시작하지 못했습니다. 다시 시도해 주세요.",
+            status_code=503,
+        )
     return RedirectResponse(f"/habits/{habit.id}", status_code=status.HTTP_303_SEE_OTHER)
 
 

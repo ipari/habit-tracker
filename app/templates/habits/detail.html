@@ -13,6 +13,10 @@
     </div>
   </header>
 
+  {% if archived %}
+    <p class="detail-notice" role="status">습관을 보관했습니다. 과거 달성 기록과 일정은 그대로 유지됩니다.</p>
+  {% endif %}
+
   <section class="detail-streak" aria-label="현재 연속 달성">
     <div>
       <strong>{{ streak }}</strong>
@@ -54,12 +58,20 @@
       class="detail-delete"
       method="post"
       action="/habits/{{ habit.id }}/archive"
-      data-confirm="과거 달성 기록과 일정은 삭제되지 않습니다. 습관을 삭제할까요?"
+      data-confirm="습관을 보관해도 과거 달성 기록과 일정은 유지됩니다. 보관한 습관은 언제든 다시 시작할 수 있습니다."
     >
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button class="detail-action danger-action" type="submit">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5"/></svg>
-        <span>삭제</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v13H4V7Zm-1-3h18v3H3V4Zm6 7h6"/></svg>
+        <span>보관</span>
+      </button>
+    </form>
+  {% else %}
+    <form class="detail-restore" method="post" action="/habits/{{ habit.id }}/restore">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="detail-action" type="submit">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2-4.9M5 4v5h5"/></svg>
+        <span>다시 시작</span>
       </button>
     </form>
   {% endif %}

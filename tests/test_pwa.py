@@ -25,7 +25,7 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     assert "scrollbar-color: var(--scrollbar-thumb" in stylesheet.text
     assert "width: min(calc(100vw - 3.5rem), 35rem)" in stylesheet.text
     assert "width: 2.3rem" in stylesheet.text
-    assert 'src="http://testserver/static/js/app.js?v=2"' in response.text
+    assert 'src="http://testserver/static/js/app.js?v=3"' in response.text
     assert "cdn.jsdelivr.net" not in response.text
     assert 'id="offline-status"' in response.text
 

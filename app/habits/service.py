@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, select
@@ -92,6 +92,15 @@ def effective_schedule(db: Session, habit_id: int, local_date: date) -> HabitSch
     )
 
 
+def latest_schedule(db: Session, habit_id: int) -> HabitSchedule | None:
+    return db.scalar(
+        select(HabitSchedule)
+        .where(HabitSchedule.habit_id == habit_id)
+        .order_by(HabitSchedule.effective_from.desc(), HabitSchedule.id.desc())
+        .limit(1)
+    )
+
+
 def update_schedule(
     db: Session, habit: Habit, weekdays_mask: int, effective_date: date
 ) -> HabitSchedule:
@@ -114,6 +123,45 @@ def update_schedule(
         )
         db.add(schedule)
     return schedule
+
+
+def pause_schedule(db: Session, habit: Habit, archived_on: date) -> None:
+    schedule = effective_schedule(db, habit.id, archived_on)
+    if schedule is None:
+        return
+    inactive_from = archived_on + timedelta(days=1)
+    if schedule.effective_until is None or schedule.effective_until > inactive_from:
+        schedule.effective_until = inactive_from
+
+
+def restart_habit(db: Session, habit: Habit, restarted_on: date) -> None:
+    schedule = effective_schedule(db, habit.id, restarted_on)
+    archived_at = habit.archived_at
+    if archived_at is not None and archived_at.tzinfo is None:
+        archived_at = archived_at.replace(tzinfo=UTC)
+    archived_on = (
+        archived_at.astimezone(application_timezone(db)).date()
+        if archived_at is not None
+        else None
+    )
+    if (
+        schedule is not None
+        and archived_on == restarted_on
+        and schedule.effective_until == restarted_on + timedelta(days=1)
+    ):
+        schedule.effective_until = None
+    if schedule is None:
+        previous_schedule = latest_schedule(db, habit.id)
+        if previous_schedule is None:
+            raise ValueError("다시 시작할 수행 요일을 찾지 못했습니다.")
+        schedule = update_schedule(
+            db, habit, previous_schedule.weekdays_mask, restarted_on
+        )
+    habit.archived_at = None
+    if habit.reminder is not None:
+        habit.reminder.weekdays_mask = schedule.weekdays_mask
+        habit.reminder.timezone = str(application_timezone(db))
+        habit.reminder.is_enabled = habit.reminder.local_time is not None
 
 
 def update_reminder(

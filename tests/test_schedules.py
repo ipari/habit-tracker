@@ -1,11 +1,17 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from app.db.models import AppSettings, Habit, HabitSchedule
+from app.db.models import AppSettings, Habit, HabitSchedule, Reminder
 from app.domain.schedules import ScheduleWindow, schedule_for_date, weekdays_to_mask
-from app.habits.service import current_local_date, update_schedule
+from app.habits.service import (
+    current_local_date,
+    pause_schedule,
+    restart_habit,
+    schedule_windows,
+    update_schedule,
+)
 from tests.conftest import client_database
 
 
@@ -60,3 +66,38 @@ def test_current_date_uses_app_iana_timezone(client: TestClient) -> None:
         assert current_local_date(db, datetime(2026, 8, 1, 16, 0, tzinfo=UTC)) == date(
             2026, 8, 2
         )
+
+
+def test_archive_gap_is_unscheduled_and_restart_reuses_last_weekdays(
+    client: TestClient,
+) -> None:
+    with client_database(client).session_factory() as db:
+        habit = Habit(name="달리기", emoji="🏃", background_preset="dawn")
+        db.add(habit)
+        db.flush()
+        weekdays_mask = weekdays_to_mask([0, 2, 4])
+        first = update_schedule(db, habit, weekdays_mask, date(2026, 8, 1))
+        reminder = Reminder(
+            habit=habit,
+            weekdays_mask=weekdays_mask,
+            local_time=time(7, 30),
+            timezone="Asia/Seoul",
+            is_enabled=True,
+        )
+        db.add(reminder)
+        habit.archived_at = datetime(2026, 8, 1, 3, tzinfo=UTC)
+        pause_schedule(db, habit, date(2026, 8, 1))
+        reminder.is_enabled = False
+
+        restart_habit(db, habit, date(2026, 8, 5))
+        db.commit()
+
+        windows = schedule_windows(db, habit.id)
+        assert first.effective_until == date(2026, 8, 2)
+        assert schedule_for_date(windows, date(2026, 8, 3)) is None
+        restarted = schedule_for_date(windows, date(2026, 8, 5))
+        assert restarted is not None
+        assert restarted.weekdays_mask == weekdays_mask
+        assert habit.archived_at is None
+        assert reminder.is_enabled is True
+        assert reminder.local_time == time(7, 30)

@@ -676,6 +676,9 @@ body { padding-bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
 .detail-action svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 .detail-delete { margin-top: .8rem; }
 .detail-delete .detail-action { width: 100%; color: #d70015; }
+.detail-restore { margin-top: .8rem; }
+.detail-restore .detail-action { width: 100%; }
+.detail-notice { margin: 0 0 1rem; padding: .8rem 1rem; border: 1px solid var(--threads-border); border-radius: var(--radius-control); background: var(--threads-raised); }
 .detail-list { overflow: hidden; margin-top: 1.5rem; border: 1px solid var(--threads-border); border-radius: var(--radius-section); }
 .detail-row { display: flex; min-height: 3.6rem; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem 1rem; border-bottom: 1px solid var(--threads-border); }
 .detail-row:last-child { border-bottom: 0; }

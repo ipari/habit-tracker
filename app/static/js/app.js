@@ -43,6 +43,15 @@ emojiInput?.addEventListener("input", () => {
   emojiInput.value = firstGrapheme(emojiInput.value);
 });
 
+const reminderTimeInput = document.querySelector("#reminder-time");
+const reminderEnabledInput = document.querySelector("#reminder-enabled");
+
+reminderTimeInput?.addEventListener("input", () => {
+  if (reminderTimeInput.value && reminderEnabledInput && !reminderEnabledInput.disabled) {
+    reminderEnabledInput.checked = true;
+  }
+});
+
 const deviceTimezoneForm = document.querySelector("[data-device-timezone-form]");
 const deviceTimezoneInput = document.querySelector("[data-device-timezone-input]");
 

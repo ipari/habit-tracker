@@ -10,7 +10,7 @@ from tests.conftest import client_database, csrf_token, login
 from tests.test_habits import create_habit
 
 
-def test_new_habit_gets_disabled_reminder_using_habit_weekdays(
+def test_new_habit_gets_enabled_reminder_when_default_time_is_set(
     client: TestClient,
 ) -> None:
     habit_id = create_habit(client, weekdays=[0, 2, 4])
@@ -18,7 +18,7 @@ def test_new_habit_gets_disabled_reminder_using_habit_weekdays(
     with client_database(client).session_factory() as db:
         reminder = db.scalar(select(Reminder).where(Reminder.habit_id == habit_id))
         assert reminder is not None
-        assert reminder.is_enabled is False
+        assert reminder.is_enabled is True
         assert reminder.weekdays_mask == weekdays_to_mask([0, 2, 4])
         assert reminder.local_time == time(9, 0)
         assert reminder.timezone == "Asia/Seoul"
@@ -118,3 +118,15 @@ def test_reminder_form_shows_saved_values_and_timezone(client: TestClient) -> No
     assert "<legend>요일" in response.text
     assert "수행 요일과 동일" not in response.text
     assert 'name="reminder_weekdays"' not in response.text
+    assert 'id="reminder-enabled"' in response.text
+    assert "checked" in response.text
+    assert "시간을 지정하거나 변경하면 알림 받기가 자동으로 켜집니다." in response.text
+
+
+def test_changing_reminder_time_enables_notification_toggle(client: TestClient) -> None:
+    login(client)
+    script = client.get("/static/js/app.js")
+
+    assert 'document.querySelector("#reminder-time")' in script.text
+    assert 'document.querySelector("#reminder-enabled")' in script.text
+    assert "reminderEnabledInput.checked = true" in script.text

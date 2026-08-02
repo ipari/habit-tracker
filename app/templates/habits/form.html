@@ -47,6 +47,7 @@
         >
       </label>
       {% if habit and habit.archived_at %}<p class="field-help">보관된 습관의 알림은 활성화할 수 없습니다.</p>{% endif %}
+      {% if not (habit and habit.archived_at) %}<p class="field-help">시간을 지정하거나 변경하면 알림 받기가 자동으로 켜집니다.</p>{% endif %}
     </section>
 
     <section class="habit-form-section" aria-label="공유 배경">

@@ -21,6 +21,7 @@ def create_habit(client: TestClient, weekdays: list[int] | None = None) -> int:
         "emoji": "💧",
         "background_preset": "ocean",
         "weekdays": weekdays or [today.weekday()],
+        "reminder_enabled": "true",
         "csrf_token": token,
     }
     response = client.post(
@@ -131,16 +132,18 @@ def test_habit_detail_collects_management_actions(client: TestClient) -> None:
     assert f'href="/habits/{habit_id}/edit?from=habits"' in detail.text
     assert f'action="/habits/{habit_id}/archive"' in detail.text
     archive_confirmation = (
-        'data-confirm="과거 달성 기록과 일정은 삭제되지 않습니다. 습관을 삭제할까요?"'
+        'data-confirm="습관을 보관해도 과거 달성 기록과 일정은 유지됩니다. '
+        '보관한 습관은 언제든 다시 시작할 수 있습니다."'
     )
     assert archive_confirmation in detail.text
     assert "<span>요일</span>" in detail.text
     assert "<span>시간</span>" in detail.text
     assert "9:00 AM" in detail.text
     assert "<span>알림</span>" in detail.text
-    assert "<strong>꺼짐</strong>" in detail.text
+    assert "<strong>켜짐</strong>" in detail.text
     assert "공유 배경" not in detail.text
-    assert detail.text.index("습관 설정 요약") < detail.text.index("<span>삭제</span>")
+    assert detail.text.index("습관 설정 요약") < detail.text.index("<span>보관</span>")
+    assert "<span>삭제</span>" not in detail.text
 
     management = client.get("/habits")
     assert f'href="/habits/{habit_id}?from=habits"' in management.text
@@ -332,7 +335,14 @@ def test_archive_hides_habit_but_preserves_records(client: TestClient) -> None:
         follow_redirects=False,
     )
     assert response.status_code == 303
+    assert response.headers["location"] == f"/habits/{habit_id}?archived=1"
     assert "물 마시기" not in client.get("/today").text
+    archived_detail = client.get(response.headers["location"])
+    assert "습관을 보관했습니다." in archived_detail.text
+    assert f'action="/habits/{habit_id}/restore"' in archived_detail.text
+    assert "<span>다시 시작</span>" in archived_detail.text
+    assert "마지막 수행 요일로 다시 시작하며" not in archived_detail.text
+    assert f'action="/habits/{habit_id}/archive"' not in archived_detail.text
     management_page = client.get("/habits")
     assert "물 마시기" in management_page.text
     assert '<details class="past-habits">' in management_page.text
@@ -354,6 +364,54 @@ def test_archive_hides_habit_but_preserves_records(client: TestClient) -> None:
         reminder = db.scalar(select(Reminder).where(Reminder.habit_id == habit_id))
         assert reminder is not None
         assert reminder.is_enabled is False
+
+
+def test_restore_reactivates_same_day_schedule_and_saved_reminder(
+    client: TestClient,
+) -> None:
+    habit_id = create_habit(client, weekdays=[0, 2, 4])
+    token = csrf_token(client)
+    database = client_database(client)
+
+    client.post(
+        f"/habits/{habit_id}/archive",
+        data={"csrf_token": token},
+        follow_redirects=False,
+    )
+    response = client.post(
+        f"/habits/{habit_id}/restore",
+        data={"csrf_token": token},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/habits/{habit_id}"
+    restored_detail = client.get(response.headers["location"])
+    assert "습관을 다시 시작했습니다." not in restored_detail.text
+    assert "저장된 시간의 알림도 다시 켰습니다." not in restored_detail.text
+    assert "<span>보관</span>" in restored_detail.text
+    assert "<span>다시 시작</span>" not in restored_detail.text
+    with database.session_factory() as db:
+        habit = db.get(Habit, habit_id)
+        schedules = db.scalars(
+            select(HabitSchedule).where(HabitSchedule.habit_id == habit_id)
+        ).all()
+        reminder = db.scalar(select(Reminder).where(Reminder.habit_id == habit_id))
+        assert habit is not None
+        assert habit.archived_at is None
+        assert len(schedules) == 1
+        assert schedules[0].effective_until is None
+        assert reminder is not None
+        assert reminder.is_enabled is True
+
+
+def test_restore_requires_csrf_and_authentication(client: TestClient) -> None:
+    assert client.post("/habits/1/restore", data={"csrf_token": "x"}).status_code == 401
+    habit_id = create_habit(client)
+    response = client.post(
+        f"/habits/{habit_id}/restore", data={"csrf_token": "invalid"}
+    )
+    assert response.status_code == 403
 
 
 def test_create_requires_at_least_one_weekday(client: TestClient) -> None:
