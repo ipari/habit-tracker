@@ -29,6 +29,64 @@ window.addEventListener("online", updateConnectionStatus);
 window.addEventListener("offline", updateConnectionStatus);
 updateConnectionStatus();
 
+const appAlertDialog = document.querySelector("#app-alert-dialog");
+const appAlertTitle = document.querySelector("#app-alert-title");
+const appAlertMessage = document.querySelector("#app-alert-message");
+const appAlertCancel = document.querySelector("[data-app-alert-cancel]");
+const appAlertConfirm = document.querySelector("[data-app-alert-confirm]");
+let resolveAppAlert = null;
+
+function closeAppAlert(result) {
+  if (!appAlertDialog?.open) {
+    return;
+  }
+  appAlertDialog.close();
+  document.documentElement.classList.remove("app-modal-open");
+  const resolve = resolveAppAlert;
+  resolveAppAlert = null;
+  resolve?.(result);
+}
+
+function openAppAlert(message, options = {}) {
+  if (!appAlertDialog || !appAlertTitle || !appAlertMessage || !appAlertConfirm || !appAlertCancel) {
+    return Promise.resolve(false);
+  }
+  if (appAlertDialog.open) {
+    closeAppAlert(false);
+  }
+
+  const isConfirm = options.variant === "confirm";
+  appAlertTitle.textContent = options.title || (isConfirm ? "확인" : "알림");
+  appAlertMessage.textContent = message;
+  appAlertConfirm.textContent = options.confirmLabel || "확인";
+  appAlertCancel.textContent = options.cancelLabel || "취소";
+  appAlertCancel.hidden = !isConfirm;
+  appAlertConfirm.classList.toggle("danger", options.tone === "danger");
+  document.documentElement.classList.add("app-modal-open");
+  appAlertDialog.showModal();
+  (isConfirm ? appAlertCancel : appAlertConfirm).focus();
+
+  return new Promise((resolve) => {
+    resolveAppAlert = resolve;
+  });
+}
+
+window.appAlert = (message, options = {}) => openAppAlert(message, options);
+window.appConfirm = (message, options = {}) =>
+  openAppAlert(message, { ...options, variant: "confirm" });
+
+appAlertConfirm?.addEventListener("click", () => closeAppAlert(true));
+appAlertCancel?.addEventListener("click", () => closeAppAlert(false));
+appAlertDialog?.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeAppAlert(false);
+});
+appAlertDialog?.addEventListener("click", (event) => {
+  if (event.target === appAlertDialog) {
+    closeAppAlert(false);
+  }
+});
+
 const emojiInput = document.querySelector("[data-single-grapheme]");
 
 function firstGrapheme(value) {
@@ -84,16 +142,38 @@ document.body.addEventListener("htmx:beforeRequest", (event) => {
   blockOfflineMutation(event, event.detail.requestConfig.verb);
 });
 
+const confirmedForms = new WeakSet();
+
 document.addEventListener(
   "submit",
-  (event) => {
-    blockOfflineMutation(event, event.target.method || "GET");
+  async (event) => {
+    const form = event.target;
+    blockOfflineMutation(event, form.method || "GET");
     if (event.defaultPrevented) {
       return;
     }
-    const message = event.target.dataset.confirm;
-    if (message && !window.confirm(message)) {
-      event.preventDefault();
+    if (confirmedForms.delete(form)) {
+      return;
+    }
+    const message = form.dataset.confirm;
+    if (!message) {
+      return;
+    }
+
+    event.preventDefault();
+    const approved = await window.appConfirm(message, {
+      title: form.dataset.confirmTitle,
+      confirmLabel: form.dataset.confirmLabel,
+      cancelLabel: form.dataset.cancelLabel,
+      tone: form.dataset.confirmTone,
+    });
+    if (approved) {
+      confirmedForms.add(form);
+      if (event.submitter) {
+        form.requestSubmit(event.submitter);
+      } else {
+        form.requestSubmit();
+      }
     }
   },
   true,

@@ -136,6 +136,9 @@ def test_habit_detail_collects_management_actions(client: TestClient) -> None:
         '보관한 습관은 언제든 다시 시작할 수 있습니다."'
     )
     assert archive_confirmation in detail.text
+    assert 'data-confirm-title="습관을 보관할까요?"' in detail.text
+    assert 'data-confirm-label="보관"' in detail.text
+    assert 'data-confirm-tone="danger"' in detail.text
     assert "<span>요일</span>" in detail.text
     assert "<span>시간</span>" in detail.text
     assert "9:00 AM" in detail.text

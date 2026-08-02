@@ -16,7 +16,7 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     assert 'rel="manifest" href="http://testserver/static/manifest.webmanifest"' in response.text
     assert 'src="http://testserver/static/vendor/htmx-2.0.10.min.js"' in response.text
     assert 'src="http://testserver/static/js/theme.js?v=1"' in response.text
-    assert 'href="http://testserver/static/css/app.css?v=34"' in response.text
+    assert 'href="http://testserver/static/css/app.css?v=36"' in response.text
     assert 'href="http://testserver/static/icons/favicon.svg?v=3"' in response.text
     assert 'href="http://testserver/static/icons/app-icon-180.png?v=5"' in response.text
 
@@ -25,9 +25,22 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     assert "scrollbar-color: var(--scrollbar-thumb" in stylesheet.text
     assert "width: min(calc(100vw - 3.5rem), 35rem)" in stylesheet.text
     assert "width: 2.3rem" in stylesheet.text
-    assert 'src="http://testserver/static/js/app.js?v=3"' in response.text
+    assert 'src="http://testserver/static/js/app.js?v=4"' in response.text
     assert "cdn.jsdelivr.net" not in response.text
     assert 'id="offline-status"' in response.text
+    assert 'id="app-alert-dialog"' in response.text
+    assert 'role="alertdialog"' in response.text
+    assert 'aria-modal="true"' in response.text
+
+    script = client.get("/static/js/app.js")
+    assert "window.appAlert" in script.text
+    assert "window.appConfirm" in script.text
+    assert "showModal()" in script.text
+    assert "window.confirm(" not in script.text
+
+    assert ".app-alert-dialog::backdrop" in stylesheet.text
+    assert "background: rgb(0 0 0 / 55%)" in stylesheet.text
+    assert ".app-alert-actions button:focus-visible" in stylesheet.text
 
 
 def test_manifest_defines_standalone_app(client: TestClient) -> None:
@@ -86,6 +99,8 @@ def test_installed_app_offers_notification_permission_after_user_action(
     assert 'self.addEventListener("notificationclick"' in worker.text
     assert '"/static/js/share.js?v=2"' in worker.text
     assert '"/static/js/theme.js?v=1"' in worker.text
+    assert '"/static/css/app.css?v=36"' in worker.text
+    assert '"/static/js/app.js?v=4"' in worker.text
     assert '"/static/icons/favicon.svg?v=3"' in worker.text
     assert '"/static/icons/app-icon-512.png?v=5"' in worker.text
     assert '"/static/icons/app-icon-maskable-512.png?v=5"' in worker.text

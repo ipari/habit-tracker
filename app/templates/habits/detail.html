@@ -59,6 +59,9 @@
       method="post"
       action="/habits/{{ habit.id }}/archive"
       data-confirm="습관을 보관해도 과거 달성 기록과 일정은 유지됩니다. 보관한 습관은 언제든 다시 시작할 수 있습니다."
+      data-confirm-title="습관을 보관할까요?"
+      data-confirm-label="보관"
+      data-confirm-tone="danger"
     >
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button class="detail-action danger-action" type="submit">
