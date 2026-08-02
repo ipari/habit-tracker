@@ -16,9 +16,9 @@
     <th>성과 공유</th>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/today.jpg" width="260" alt="오늘의 습관 목록과 달성 상태"></td>
-    <td><img src="docs/screenshots/calendar.jpg" width="260" alt="월간 달력과 선택한 날짜의 습관"></td>
-    <td><img src="docs/screenshots/share.jpg" width="260" alt="연속 달성 성과 공유 이미지 미리보기"></td>
+    <td><img src="docs/screenshots/today.png" width="260" alt="오늘의 습관 목록과 달성 상태"></td>
+    <td><img src="docs/screenshots/calendar.png" width="260" alt="월간 달력과 선택한 날짜의 습관"></td>
+    <td><img src="docs/screenshots/share.png" width="260" alt="연속 달성 성과 공유 이미지 미리보기"></td>
   </tr>
 </table>
 
