@@ -104,7 +104,18 @@ REMINDER_LOOKBACK_MINUTES=5
 
 ## Docker Compose
 
-운영 환경에서는 `SESSION_COOKIE_SECURE=true`를 사용하고 기존 HTTPS 리버스 프록시 뒤에서 실행합니다. API는 기본적으로 `127.0.0.1:8000`에만 바인딩됩니다.
+운영 환경에서는 `SESSION_COOKIE_SECURE=true`를 사용하고 기존 HTTPS 리버스 프록시 뒤에서 실행합니다. Nginx는 `Host`, `X-Forwarded-For`, `X-Forwarded-Proto` 헤더를 전달해야 합니다. Compose의 Uvicorn은 Docker 게이트웨이에서 전달된 프록시 헤더를 인식하도록 `--proxy-headers --forwarded-allow-ips='*'`로 실행됩니다. 이 설정은 전달된 호스트와 프로토콜을 신뢰하므로 API 포트는 기본값처럼 `127.0.0.1:8000`에만 바인딩하고 인터넷에 직접 노출하지 않아야 합니다.
+
+Nginx 프록시 설정에는 최소한 다음 헤더가 포함되어야 합니다.
+
+```nginx
+proxy_set_header Host $http_host;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $scheme;
+```
+
+`X-Forwarded-Proto`가 전달되지 않거나 Uvicorn이 프록시를 신뢰하지 않으면 HTTPS 페이지가 `http://` 정적 자산 URL을 생성해 브라우저의 Mixed Content 정책에 차단될 수 있습니다.
 
 ```bash
 docker compose build

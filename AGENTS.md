@@ -185,6 +185,8 @@ Supabase와 PostgreSQL은 현재 범위에 사용하지 않는다. 향후 사용
 ## 배포 토폴로지
 
 - 리버스 프록시: 기존 HTTPS 종단과 도메인을 사용하며 API 컨테이너를 인터넷에 직접 노출하지 않음
+- Nginx는 `Host`, `X-Forwarded-For`, `X-Forwarded-Proto`를 전달하고 Uvicorn은 Docker 프록시 헤더를 신뢰하도록 실행
+- Uvicorn의 `forwarded-allow-ips`를 전체 허용할 때는 Compose의 API 포트를 `127.0.0.1`에만 바인딩하고 외부에 직접 공개하지 않음
 - 프론트엔드: FastAPI 컨테이너가 Jinja2 템플릿과 정적 자산을 제공
 - API: 단일 FastAPI/Uvicorn 프로세스
 - Scheduler: 알림 조회와 Web Push 발송만 담당하는 단일 Python 프로세스

@@ -500,6 +500,8 @@ Habit Tracker는 사용자가 반복하고 싶은 습관을 등록하고, 날짜
 ### 운영과 복구
 
 - Docker Compose는 API readiness와 스케줄러 프로세스 health check 및 `unless-stopped` 재시작 정책을 제공한다.
+- HTTPS 리버스 프록시는 `Host`, `X-Forwarded-For`, `X-Forwarded-Proto`를 전달하고 Uvicorn은 신뢰된 프록시 헤더를 사용해 외부 요청의 호스트와 스킴을 복원해야 한다.
+- 모든 프록시 주소를 신뢰하도록 Uvicorn을 실행하는 경우 API 포트는 `127.0.0.1`에만 바인딩하고 인터넷에 직접 노출해서는 안 된다.
 - Windows/WSL2 부팅 뒤 Docker와 Compose 스택의 자동 시작은 호스트에서 별도로 설정하고 점검한다.
 - SQLite DB는 WSL2 Linux 파일시스템 또는 Docker named volume에 저장한다.
 - 현재 앱에는 자동 백업 기능이 없다. 운영자가 별도 작업으로 SQLite Online Backup API 또는 `VACUUM INTO` 방식의 백업을 구성해야 한다.
