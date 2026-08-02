@@ -101,11 +101,41 @@ emojiInput?.addEventListener("input", () => {
   emojiInput.value = firstGrapheme(emojiInput.value);
 });
 
+const timeEnabledInput = document.querySelector("#time-enabled");
+const timeSettings = document.querySelector("[data-time-settings]");
 const reminderTimeInput = document.querySelector("#reminder-time");
 const reminderEnabledInput = document.querySelector("#reminder-enabled");
 
+function syncTimeSettings(fromUser = false) {
+  if (!timeEnabledInput || !timeSettings) {
+    return;
+  }
+  const isEnabled = timeEnabledInput.checked;
+  timeSettings.disabled = !isEnabled;
+  timeSettings.classList.toggle("is-disabled", !isEnabled);
+  timeSettings.setAttribute("aria-disabled", String(!isEnabled));
+  timeEnabledInput.setAttribute("aria-expanded", String(isEnabled));
+
+  if (!reminderEnabledInput) {
+    return;
+  }
+  if (!isEnabled) {
+    reminderEnabledInput.checked = false;
+  } else if (fromUser && !reminderEnabledInput.hasAttribute("data-reminder-locked")) {
+    reminderEnabledInput.checked = true;
+  }
+}
+
+timeEnabledInput?.addEventListener("change", () => syncTimeSettings(true));
+syncTimeSettings();
+
 reminderTimeInput?.addEventListener("input", () => {
-  if (reminderTimeInput.value && reminderEnabledInput && !reminderEnabledInput.disabled) {
+  if (
+    timeEnabledInput?.checked &&
+    reminderTimeInput.value &&
+    reminderEnabledInput &&
+    !reminderEnabledInput.disabled
+  ) {
     reminderEnabledInput.checked = true;
   }
 });

@@ -21,7 +21,9 @@ def create_habit(client: TestClient, weekdays: list[int] | None = None) -> int:
         "emoji": "💧",
         "background_preset": "ocean",
         "weekdays": weekdays or [today.weekday()],
+        "time_enabled": "true",
         "reminder_enabled": "true",
+        "reminder_time": "09:00",
         "csrf_token": token,
     }
     response = client.post(
@@ -181,6 +183,7 @@ def test_habit_list_summarizes_schedule_streak_and_reminder(client: TestClient) 
             "emoji": "💧",
             "background_preset": "ocean",
             "weekdays": [str(day) for day in range(5)],
+            "time_enabled": "true",
             "reminder_enabled": "true",
             "reminder_time": "13:00",
             "return_to": "habits",
@@ -197,6 +200,7 @@ def test_habit_list_summarizes_schedule_streak_and_reminder(client: TestClient) 
             "emoji": "🚶",
             "background_preset": "forest",
             "weekdays": ["5", "6"],
+            "time_enabled": "true",
             "reminder_time": "09:00",
             "csrf_token": token,
         },
@@ -270,6 +274,7 @@ def test_edit_returns_to_the_page_it_was_opened_from(client: TestClient) -> None
             "emoji": "💧",
             "background_preset": "ocean",
             "weekdays": [str(today.weekday())],
+            "time_enabled": "true",
             "reminder_time": "09:00",
             "return_to": "today",
             "csrf_token": token,

@@ -46,11 +46,11 @@
         <span>시간</span>
         <strong>{{ time_label }}</strong>
       </div>
+      <div class="detail-row">
+        <span>알림</span>
+        <strong>{{ reminder_label }}</strong>
+      </div>
     {% endif %}
-    <div class="detail-row">
-      <span>알림</span>
-      <strong>{{ reminder_label }}</strong>
-    </div>
   </section>
 
   {% if habit.archived_at is none %}

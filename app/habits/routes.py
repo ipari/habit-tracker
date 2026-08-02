@@ -19,6 +19,7 @@ from app.habits.service import (
     habit_streak,
     latest_schedule,
     pause_schedule,
+    remove_reminder,
     restart_habit,
     set_completion,
     today_habits,
@@ -118,8 +119,9 @@ def form_context(
         "habit": habit,
         "reminder": reminder,
         "selected_weekdays": selected_weekdays,
+        "time_enabled": resolved_values.get("time_enabled", reminder is not None),
         "reminder_enabled": resolved_values.get(
-            "reminder_enabled", reminder.is_enabled if reminder else True
+            "reminder_enabled", reminder.is_enabled if reminder else False
         ),
         "reminder_time": resolved_values.get("reminder_time", reminder_time),
         "return_to": normalize_return_to(return_to),
@@ -183,7 +185,7 @@ def validate_reminder_form(
             raise ValueError
         local_time = time.fromisoformat(reminder_time)
     except ValueError as exc:
-        raise ValueError("알림 시간을 올바르게 입력해 주세요.") from exc
+        raise ValueError("시간을 올바르게 입력해 주세요.") from exc
 
     return local_time
 
@@ -291,6 +293,7 @@ def create_habit(
     csrf_token: Annotated[str, Form()],
     emoji: Annotated[str, Form(max_length=32)] = "",
     weekdays: Annotated[list[int] | None, Form()] = None,
+    time_enabled: Annotated[bool, Form()] = False,
     reminder_enabled: Annotated[bool, Form()] = False,
     reminder_time: Annotated[str, Form(max_length=5)] = "09:00",
 ) -> Response:
@@ -300,6 +303,7 @@ def create_habit(
         "name": name,
         "emoji": emoji,
         "background_preset": background_preset,
+        "time_enabled": time_enabled,
         "reminder_enabled": reminder_enabled,
         "reminder_time": reminder_time,
     }
@@ -318,7 +322,11 @@ def create_habit(
         clean_name, clean_emoji, mask = validate_habit_form(
             name, emoji, weekdays, background_preset
         )
-        local_time = validate_reminder_form(reminder_time=reminder_time)
+        local_time = (
+            validate_reminder_form(reminder_time=reminder_time)
+            if time_enabled
+            else None
+        )
         local_date = current_local_date(db)
         habit = Habit(
             name=clean_name,
@@ -327,14 +335,15 @@ def create_habit(
         )
         db.add(habit)
         update_schedule(db, habit, mask, local_date)
-        update_reminder(
-            db,
-            habit,
-            is_enabled=reminder_enabled and habit.archived_at is None,
-            weekdays_mask=mask,
-            local_time=local_time,
-            timezone=timezone,
-        )
+        if local_time is not None:
+            update_reminder(
+                db,
+                habit,
+                is_enabled=reminder_enabled and habit.archived_at is None,
+                weekdays_mask=mask,
+                local_time=local_time,
+                timezone=timezone,
+            )
         db.commit()
     except ValueError as exc:
         db.rollback()
@@ -422,6 +431,7 @@ def save_habit(
     csrf_token: Annotated[str, Form()],
     emoji: Annotated[str, Form(max_length=32)] = "",
     weekdays: Annotated[list[int] | None, Form()] = None,
+    time_enabled: Annotated[bool, Form()] = False,
     reminder_enabled: Annotated[bool, Form()] = False,
     reminder_time: Annotated[str, Form(max_length=5)] = "09:00",
     return_to: Annotated[str, Form(max_length=16)] = "habits",
@@ -435,6 +445,7 @@ def save_habit(
         "name": name,
         "emoji": emoji,
         "background_preset": background_preset,
+        "time_enabled": time_enabled,
         "reminder_enabled": reminder_enabled,
         "reminder_time": reminder_time,
     }
@@ -456,19 +467,26 @@ def save_habit(
         clean_name, clean_emoji, mask = validate_habit_form(
             name, emoji, weekdays, background_preset
         )
-        local_time = validate_reminder_form(reminder_time=reminder_time)
+        local_time = (
+            validate_reminder_form(reminder_time=reminder_time)
+            if time_enabled
+            else None
+        )
         habit.name = clean_name
         habit.emoji = clean_emoji
         habit.background_preset = background_preset
         update_schedule(db, habit, mask, current_local_date(db))
-        update_reminder(
-            db,
-            habit,
-            is_enabled=reminder_enabled and habit.archived_at is None,
-            weekdays_mask=mask,
-            local_time=local_time,
-            timezone=timezone,
-        )
+        if local_time is None:
+            remove_reminder(habit)
+        else:
+            update_reminder(
+                db,
+                habit,
+                is_enabled=reminder_enabled and habit.archived_at is None,
+                weekdays_mask=mask,
+                local_time=local_time,
+                timezone=timezone,
+            )
         db.commit()
     except ValueError as exc:
         db.rollback()

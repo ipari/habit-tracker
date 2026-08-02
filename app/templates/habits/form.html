@@ -31,23 +31,44 @@
           {% endfor %}
         </div>
       </fieldset>
-      <div class="habit-form-field">
-        <label for="reminder-time">시간</label>
-        <input id="reminder-time" name="reminder_time" type="time" required value="{{ reminder_time }}">
-      </div>
-      <label class="setting-toggle habit-form-field notification-toggle" for="reminder-enabled">
-        <strong>알림 받기</strong>
+      <label class="setting-toggle habit-form-field time-toggle" for="time-enabled">
+        <strong>시간 설정</strong>
         <input
-          id="reminder-enabled"
-          name="reminder_enabled"
+          id="time-enabled"
+          name="time_enabled"
           type="checkbox"
           value="true"
-          {% if reminder_enabled %}checked{% endif %}
-          {% if habit and habit.archived_at %}disabled{% endif %}
+          aria-controls="time-settings"
+          aria-expanded="{{ 'true' if time_enabled else 'false' }}"
+          {% if time_enabled %}checked{% endif %}
         >
       </label>
-      {% if habit and habit.archived_at %}<p class="field-help">보관된 습관의 알림은 활성화할 수 없습니다.</p>{% endif %}
-      {% if not (habit and habit.archived_at) %}<p class="field-help">시간을 지정하거나 변경하면 알림 받기가 자동으로 켜집니다.</p>{% endif %}
+      <fieldset
+        id="time-settings"
+        class="time-settings{% if not time_enabled %} is-disabled{% endif %}"
+        data-time-settings
+        aria-disabled="{{ 'false' if time_enabled else 'true' }}"
+        {% if not time_enabled %}disabled{% endif %}
+      >
+        <legend class="sr-only">시간과 알림 설정</legend>
+        <div class="habit-form-field">
+          <label for="reminder-time">시간</label>
+          <input id="reminder-time" name="reminder_time" type="time" required value="{{ reminder_time }}">
+        </div>
+        <label class="setting-toggle habit-form-field notification-toggle" for="reminder-enabled">
+          <strong>알림 받기</strong>
+          <input
+            id="reminder-enabled"
+            name="reminder_enabled"
+            type="checkbox"
+            value="true"
+            {% if reminder_enabled %}checked{% endif %}
+            {% if habit and habit.archived_at %}disabled data-reminder-locked{% endif %}
+          >
+        </label>
+        {% if habit and habit.archived_at %}<p class="field-help">보관된 습관의 알림은 활성화할 수 없습니다.</p>{% endif %}
+        {% if not (habit and habit.archived_at) %}<p class="field-help">시간을 지정하거나 변경하면 알림 받기가 자동으로 켜집니다.</p>{% endif %}
+      </fieldset>
     </section>
 
     <section class="habit-form-section" aria-label="공유 배경">

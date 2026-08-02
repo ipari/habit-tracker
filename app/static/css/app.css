@@ -725,6 +725,10 @@ body { padding-bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
 .schedule-form-section { gap: 1rem; }
 .habit-form-field { display: grid; gap: .45rem; }
 .setting-toggle.habit-form-field { display: flex; }
+.time-toggle { padding: .15rem 0; }
+.time-settings { display: grid; gap: .8rem; transition: opacity 150ms ease; }
+.time-settings.is-disabled { opacity: .42; }
+.time-settings:disabled { pointer-events: none; }
 .notification-toggle { padding: .85rem; border: 1px solid var(--threads-border); border-radius: var(--radius-control); background: var(--threads-raised); }
 .share-header { margin-bottom: .8rem; }
 .habit-form > .form-actions { margin-top: .15rem; }

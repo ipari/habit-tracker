@@ -184,6 +184,12 @@ def update_reminder(
     return reminder
 
 
+def remove_reminder(habit: Habit) -> None:
+    if habit.reminder is None:
+        return
+    habit.reminder = None
+
+
 def habit_streak(db: Session, habit_id: int, as_of: date) -> int:
     schedules = schedule_windows(db, habit_id)
     if not schedules:
