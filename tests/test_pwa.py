@@ -16,14 +16,15 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     assert 'rel="manifest" href="http://testserver/static/manifest.webmanifest"' in response.text
     assert 'src="http://testserver/static/vendor/htmx-2.0.10.min.js"' in response.text
     assert 'src="http://testserver/static/js/theme.js?v=1"' in response.text
-    assert 'href="http://testserver/static/css/app.css?v=37"' in response.text
+    assert 'href="http://testserver/static/css/app.css?v=38"' in response.text
     assert 'href="http://testserver/static/icons/favicon.svg?v=3"' in response.text
     assert 'href="http://testserver/static/icons/app-icon-180.png?v=5"' in response.text
 
     stylesheet = client.get("/static/css/app.css")
     assert "scrollbar-gutter: stable both-edges" in stylesheet.text
     assert "scrollbar-color: var(--scrollbar-thumb" in stylesheet.text
-    assert "width: min(calc(100vw - 3.5rem), 35rem)" in stylesheet.text
+    assert "left: 50%" in stylesheet.text
+    assert "width: min(calc(100% - 3.5rem), 35rem)" in stylesheet.text
     assert "width: 2.3rem" in stylesheet.text
     assert 'src="http://testserver/static/js/app.js?v=6"' in response.text
     assert "cdn.jsdelivr.net" not in response.text
@@ -99,7 +100,7 @@ def test_installed_app_offers_notification_permission_after_user_action(
     assert 'self.addEventListener("notificationclick"' in worker.text
     assert '"/static/js/share.js?v=2"' in worker.text
     assert '"/static/js/theme.js?v=1"' in worker.text
-    assert '"/static/css/app.css?v=37"' in worker.text
+    assert '"/static/css/app.css?v=38"' in worker.text
     assert '"/static/js/app.js?v=6"' in worker.text
     assert '"/static/icons/favicon.svg?v=3"' in worker.text
     assert '"/static/icons/app-icon-512.png?v=5"' in worker.text

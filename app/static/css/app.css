@@ -603,8 +603,8 @@ body { padding-bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
 
 .tab-bar {
   bottom: calc(.95rem + env(safe-area-inset-bottom));
-  left: 50vw;
-  width: min(calc(100vw - 3.5rem), 35rem);
+  left: 50%;
+  width: min(calc(100% - 3.5rem), 35rem);
   min-height: 3.45rem;
   padding: .28rem;
   border-radius: var(--radius-full);
