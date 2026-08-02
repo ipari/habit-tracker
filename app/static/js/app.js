@@ -106,6 +106,19 @@ const timeSettings = document.querySelector("[data-time-settings]");
 const reminderTimeInput = document.querySelector("#reminder-time");
 const reminderEnabledInput = document.querySelector("#reminder-enabled");
 
+function currentTimeRoundedDown(intervalMinutes = 10) {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(
+    Math.floor(now.getMinutes() / intervalMinutes) * intervalMinutes,
+  ).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+if (reminderTimeInput?.hasAttribute("data-default-current-time")) {
+  reminderTimeInput.value = currentTimeRoundedDown();
+}
+
 function syncTimeSettings(fromUser = false) {
   if (!timeEnabledInput || !timeSettings) {
     return;

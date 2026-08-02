@@ -113,6 +113,7 @@ def form_context(
     values: dict[str, Any] | None = None,
     error: str | None = None,
 ) -> dict[str, Any]:
+    use_current_time_default = habit is None and values is None
     resolved_values = values or {}
     reminder_time = reminder.local_time.strftime("%H:%M") if reminder else "09:00"
     return {
@@ -124,6 +125,7 @@ def form_context(
             "reminder_enabled", reminder.is_enabled if reminder else False
         ),
         "reminder_time": resolved_values.get("reminder_time", reminder_time),
+        "use_current_time_default": use_current_time_default,
         "return_to": normalize_return_to(return_to),
         "return_path": return_path(return_to),
         "return_label": "오늘" if normalize_return_to(return_to) == "today" else "습관",

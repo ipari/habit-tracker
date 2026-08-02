@@ -114,7 +114,11 @@ def test_reminder_form_shows_saved_values_and_timezone(client: TestClient) -> No
     assert "checked" in time_toggle
     assert 'id="time-settings"' in response.text
     assert 'aria-disabled="false"' in response.text
-    assert 'name="reminder_time" type="time" required value="09:00"' in response.text
+    reminder_time = response.text.split('id="reminder-time"', 1)[1].split(">", 1)[0]
+    assert 'name="reminder_time"' in reminder_time
+    assert 'type="time"' in reminder_time
+    assert "required" in reminder_time
+    assert 'value="09:00"' in reminder_time
     assert '<label for="reminder-time">시간</label>' in response.text
     assert "알림 시간" not in response.text
     assert "기준 시간대:" not in response.text
@@ -140,6 +144,21 @@ def test_changing_reminder_time_enables_notification_toggle(client: TestClient) 
     assert 'document.querySelector("#reminder-enabled")' in script.text
     assert "timeSettings.disabled = !isEnabled" in script.text
     assert "reminderEnabledInput.checked = true" in script.text
+
+
+def test_new_habit_defaults_time_to_current_ten_minute_floor(client: TestClient) -> None:
+    login(client)
+
+    form = client.get("/habits/new")
+    script = client.get("/static/js/app.js")
+
+    assert "data-default-current-time" in form.text
+    assert "currentTimeRoundedDown(intervalMinutes = 10)" in script.text
+    assert "Math.floor(now.getMinutes() / intervalMinutes) * intervalMinutes" in script.text
+
+    habit_id = create_habit(client)
+    edit_form = client.get(f"/habits/{habit_id}/edit")
+    assert "data-default-current-time" not in edit_form.text
 
 
 def test_new_habit_can_be_created_without_time(client: TestClient) -> None:

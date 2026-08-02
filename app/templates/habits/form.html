@@ -53,7 +53,14 @@
         <legend class="sr-only">시간과 알림 설정</legend>
         <div class="habit-form-field">
           <label for="reminder-time">시간</label>
-          <input id="reminder-time" name="reminder_time" type="time" required value="{{ reminder_time }}">
+          <input
+            id="reminder-time"
+            name="reminder_time"
+            type="time"
+            required
+            value="{{ reminder_time }}"
+            {% if use_current_time_default %}data-default-current-time{% endif %}
+          >
         </div>
         <label class="setting-toggle habit-form-field notification-toggle" for="reminder-enabled">
           <strong>알림 받기</strong>
