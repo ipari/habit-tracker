@@ -49,7 +49,7 @@
         <article class="admin-item">
           <strong>{{ row.user.email }}</strong>
           <p class="settings-detail">{% if row.user.is_active %}활성{% else %}비활성{% endif %} · 직접 초대 {{ row.invited_count }}명 · 활성 링크 {{ row.active_invitation_count }}개</p>
-          <p class="settings-detail">가입 {{ row.user.created_at.strftime('%Y-%m-%d') }}{% if row.user.last_login_at %} · 마지막 로그인 {{ row.user.last_login_at.strftime('%Y-%m-%d') }}{% endif %}{% if row.joined_invitation %} · 초대 {{ row.joined_invitation.code }}{% else %} · 기존 데이터 이전{% endif %}</p>
+          <p class="settings-detail">가입 {{ row.user.created_at.strftime('%Y-%m-%d') }}{% if row.user.last_login_at %} · 마지막 로그인 {{ row.user.last_login_at.strftime('%Y-%m-%d') }}{% endif %}{% if row.joined_invitation %} · 초대 {{ row.joined_invitation.code }}{% else %} · 초대 정보 없음{% endif %}</p>
           <div class="settings-row-actions">
             <form method="post" action="/admin/users/{{ row.user.id }}/status">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

@@ -72,22 +72,16 @@ chmod 600 .env
 
 `.env` 계정은 회원 관리 전용 admin입니다. admin으로 로그인해 초대 링크를 생성한 뒤, 해당 링크에서 일반 회원 계정을 만들어 습관 기능을 사용합니다. 일반 회원은 설정에서 자신의 초대 링크와 비밀번호를 관리할 수 있습니다.
 
-### 기존 단일 사용자 데이터 이전
+### 수동 DB 백업
 
-기존 버전에서 업그레이드하면 Alembic이 사용자별 소유권 컬럼을 추가하지만, 기존 데이터의 소유자는 임의로 결정하지 않습니다. 스키마 업그레이드가 끝난 뒤 API 컨테이너에서 다음 명령을 한 번 실행합니다.
-
-`20260801_0005`에서 다중 사용자 스키마로 올라갈 때 `habits`와 `push_subscriptions`는 SQLite batch 테이블 재생성을 사용하지 않고 nullable 외래 키 컬럼을 네이티브로 추가합니다. 마이그레이션은 습관·일정·달성·알림·푸시 구독·발송 이력의 전후 행 수와 외래 키 무결성을 확인합니다.
-
-본래 DB에 적용하기 전에는 실행 중인 DB 파일을 단순 복사하지 말고 SQLite Online Backup API로 Compose volume 밖에 수동 백업합니다. 다음 명령은 API의 일반 시작 명령을 덮어쓰므로 Alembic을 실행하지 않습니다.
+현재 애플리케이션에는 자동 백업 작업이 없습니다. 실행 중인 DB 파일을 단순 복사하지 말고 SQLite Online Backup API로 백업한 뒤 Compose volume 밖으로 복사합니다.
 
 ```bash
 mkdir -p backups
 backup_stamp=$(date +%Y%m%d-%H%M%S)
-backup_name="habit_tracker-pre-multiuser-${backup_stamp}.db"
+backup_name="habit_tracker-${backup_stamp}.db"
 
-docker compose run --rm --no-deps -T \
-  -v "$PWD/backups:/backup" \
-  api python - "/backup/$backup_name" <<'PY'
+docker compose exec -T api python - "/data/$backup_name" <<'PY'
 import sqlite3
 import sys
 
@@ -103,17 +97,11 @@ finally:
     source.close()
 print(sys.argv[1])
 PY
+
+docker compose cp "api:/data/$backup_name" "$PWD/backups/$backup_name"
 ```
 
-백업 복사본에서 먼저 `alembic upgrade head`와 아래 사용자 이전 명령을 시험하고, 주요 테이블의 행 수를 대조한 뒤 본래 DB에 적용합니다. API 서비스는 시작할 때 자동으로 `alembic upgrade head`를 실행하므로 백업과 시험 검증 전에는 본래 DB를 새 API 이미지에 연결해 시작하지 않습니다.
-
-```bash
-docker compose exec api python -m app.accounts.migrate_legacy_user
-```
-
-명령은 이전 대상 일반 회원의 이메일과 8자 이상 초기 비밀번호를 대화형으로 입력받습니다. 평문 비밀번호는 셸 인자나 로그에 남기지 않고 Argon2id 해시만 저장하며, 기존 시간대·습관·일정·달성 기록·알림·푸시 구독을 해당 회원에게 연결합니다. 기존 `.env` 계정은 데이터가 없는 admin으로 유지됩니다.
-
-명령은 연결한 설정·습관·푸시 구독 수와 현재 DB의 전체·회원 소유 습관 수를 출력합니다. 회원만 생성되고 데이터가 연결되지 않았다면 같은 이메일로 다시 실행할 수 있으며, 이때 비밀번호를 변경하지 않고 아직 소유자가 없는 데이터만 연결합니다. `전체 습관 0개`가 출력되면 기존 DB가 아닌 다른 Compose named volume 또는 `DATABASE_URL`을 사용 중인지 확인해야 합니다. 이미 다른 회원 소유로 지정된 데이터는 자동으로 가져오지 않습니다.
+호스트의 백업 파일에서 `PRAGMA quick_check`와 주요 테이블의 행 수를 확인하고, 운영 `.env`도 별도로 안전하게 보관합니다.
 
 ## Web Push 알림
 
