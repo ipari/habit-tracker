@@ -40,6 +40,29 @@ def test_login_and_logout(client: TestClient) -> None:
     assert client.get("/today").status_code == 401
 
 
+def test_login_page_uses_email_label_and_icon_password_toggle(client: TestClient) -> None:
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    assert '<h1 id="login-title">오늘의 습관을 이어가세요</h1>' in response.text
+    assert "다시 만나서 반가워요" not in response.text
+    assert '<p class="muted">오늘의 작은 실천을 이어가세요.</p>' not in response.text
+    assert '<label for="username">이메일</label>' in response.text
+    assert "아이디 또는 이메일" not in response.text
+    assert 'class="login-form"' in response.text
+    assert response.text.count('class="login-field"') == 2
+    assert 'class="login-submit"' in response.text
+    assert 'aria-label="비밀번호 표시"' in response.text
+    assert "data-password-show" in response.text
+    assert "data-password-hide" in response.text
+    assert ">표시</button>" not in response.text
+
+    script = client.get("/static/js/password-visibility.js")
+    assert 'button.setAttribute("aria-label", label)' in script.text
+    assert 'showIcon.toggleAttribute("hidden", willShow)' in script.text
+    assert 'hideIcon.toggleAttribute("hidden", !willShow)' in script.text
+
+
 def test_unauthenticated_browser_and_htmx_requests_redirect_to_login(client: TestClient) -> None:
     browser = client.get("/today", headers={"accept": "text/html"}, follow_redirects=False)
     assert browser.status_code == 303

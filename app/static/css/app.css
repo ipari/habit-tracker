@@ -75,6 +75,14 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .secondary { background: #e4ebe5; color: #23452f; }
 .password-field { display: grid; grid-template-columns: 1fr auto; gap: .5rem; }
 .compact { min-width: 4rem; }
+.login-form { gap: 1.1rem; margin-top: 1.75rem; }
+.login-card h1 { text-wrap: balance; }
+.login-field { display: grid; gap: .5rem; }
+.login-submit { margin-top: .3rem; }
+.password-toggle.secondary { display: grid; width: 3rem; min-width: 3rem; padding: 0; place-items: center; border: 1px solid var(--threads-border); background: var(--threads-raised); color: var(--threads-text); }
+.password-toggle.secondary:hover { background: var(--completion-idle-hover); }
+.password-toggle svg { width: 1.3rem; height: 1.3rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.password-toggle svg[hidden] { display: none; }
 .error { margin-top: 1rem; padding: .75rem; border-radius: .75rem; background: #ffe9e7; color: #8b231a; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
 .topbar form { margin: 0; }

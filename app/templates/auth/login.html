@@ -1,27 +1,40 @@
 {% extends "base.html" %}
 {% block title %}로그인 · Habit Tracker{% endblock %}
 {% block content %}
-  <section class="card" aria-labelledby="login-title">
-    <h1 id="login-title">다시 만나서 반가워요</h1>
-    <p class="muted">오늘의 작은 실천을 이어가세요.</p>
+  <section class="card login-card" aria-labelledby="login-title">
+    <h1 id="login-title">오늘의 습관을 이어가세요</h1>
     {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
-    <form method="post" action="/login">
+    <form class="login-form" method="post" action="/login">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label for="username">아이디 또는 이메일</label>
-      <input id="username" name="username" required maxlength="254" autocomplete="username">
-      <label for="password">비밀번호</label>
-      <div class="password-field">
-        <input id="password" name="password" type="password" required autocomplete="current-password">
-        <button
-          class="secondary compact"
-          type="button"
-          data-password-toggle
-          aria-controls="password"
-          aria-pressed="false"
-        >표시</button>
+      <div class="login-field">
+        <label for="username">이메일</label>
+        <input id="username" name="username" required maxlength="254" autocomplete="username">
       </div>
-      <button type="submit">로그인</button>
+      <div class="login-field">
+        <label for="password">비밀번호</label>
+        <div class="password-field">
+          <input id="password" name="password" type="password" required autocomplete="current-password">
+          <button
+            class="secondary compact password-toggle"
+            type="button"
+            data-password-toggle
+            aria-controls="password"
+            aria-pressed="false"
+            aria-label="비밀번호 표시"
+            title="비밀번호 표시"
+          >
+            <svg data-password-show viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"/>
+              <circle cx="12" cy="12" r="2.75"/>
+            </svg>
+            <svg data-password-hide viewBox="0 0 24 24" aria-hidden="true" hidden>
+              <path d="M4.4 4.4 19.6 19.6M9.8 6.3A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a15 15 0 0 1-2.4 3.1M6.2 7.2A16 16 0 0 0 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 2.2-.3"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <button class="login-submit" type="submit">로그인</button>
     </form>
   </section>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', path='/js/password-visibility.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='/js/password-visibility.js') }}?v=3" defer></script>{% endblock %}
