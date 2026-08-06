@@ -14,15 +14,35 @@ def get_db(request: Request) -> Iterator[Session]:
 DbSession = Annotated[Session, Depends(get_db)]
 
 
-def optional_identity(request: Request) -> AuthenticatedIdentity | None:
-    return read_session_token(request.app.state.settings, request.cookies.get("session"))
+def optional_identity(request: Request, db: Session) -> AuthenticatedIdentity | None:
+    identity = read_session_token(
+        request.app.state.settings, db, request.cookies.get("session")
+    )
+    request.state.identity = identity
+    return identity
 
 
-def require_identity(request: Request) -> AuthenticatedIdentity:
-    identity = optional_identity(request)
+def require_identity(request: Request, db: DbSession) -> AuthenticatedIdentity:
+    identity = optional_identity(request, db)
     if identity is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     return identity
 
 
 CurrentIdentity = Annotated[AuthenticatedIdentity, Depends(require_identity)]
+
+
+def require_member(identity: CurrentIdentity) -> AuthenticatedIdentity:
+    if identity.role != "member" or identity.user_id is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    return identity
+
+
+def require_admin(identity: CurrentIdentity) -> AuthenticatedIdentity:
+    if identity.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    return identity
+
+
+MemberIdentity = Annotated[AuthenticatedIdentity, Depends(require_member)]
+AdminIdentity = Annotated[AuthenticatedIdentity, Depends(require_admin)]

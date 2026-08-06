@@ -25,20 +25,133 @@ def utc_now() -> datetime:
 class AppSettings(Base):
     __tablename__ = "app_settings"
 
-    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True
+    )
     timezone: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
 
-    __table_args__ = (CheckConstraint("id = 1", name="ck_app_settings_singleton"),)
+
+
+class Invitation(Base):
+    __tablename__ = "invitations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(12), unique=True)
+    created_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_by_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_joined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+    creator: Mapped["User | None"] = relationship(
+        back_populates="created_invitations", foreign_keys=[created_by_user_id]
+    )
+    joined_users: Mapped[list["User"]] = relationship(
+        back_populates="invitation", foreign_keys="User.invitation_id"
+    )
+
+    __table_args__ = (
+        CheckConstraint("length(code) = 12", name="ck_invitations_code_length"),
+        CheckConstraint(
+            "created_by_admin = 1 OR created_by_user_id IS NOT NULL OR is_active = 0",
+            name="ck_invitations_creator",
+        ),
+    )
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(254))
+    normalized_email: Mapped[str] = mapped_column(String(254), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    invitation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("invitations.id", ondelete="SET NULL")
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+    invitation: Mapped[Invitation | None] = relationship(
+        back_populates="joined_users", foreign_keys=[invitation_id]
+    )
+    created_invitations: Mapped[list[Invitation]] = relationship(
+        back_populates="creator", foreign_keys=[Invitation.created_by_user_id]
+    )
+    habits: Mapped[list["Habit"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    push_subscriptions: Mapped[list["PushSubscription"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    sessions: Mapped[list["UserSession"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    reset_tokens: Mapped[list["PasswordResetToken"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE")
+    )
+    role: Mapped[str] = mapped_column(String(16))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    credential_fingerprint: Mapped[str] = mapped_column(String(64), default="")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    user: Mapped[User | None] = relationship(back_populates="sessions")
+
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'member')", name="ck_user_sessions_role"),
+        CheckConstraint(
+            "(role = 'admin' AND user_id IS NULL) OR "
+            "(role = 'member' AND user_id IS NOT NULL)",
+            name="ck_user_sessions_subject",
+        ),
+    )
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    user: Mapped[User] = relationship(back_populates="reset_tokens")
 
 
 class Habit(Base):
     __tablename__ = "habits"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(80))
     emoji: Mapped[str] = mapped_column(String(32))
     background_preset: Mapped[str] = mapped_column(String(32), default="dawn")
@@ -57,6 +170,7 @@ class Habit(Base):
     reminder: Mapped["Reminder | None"] = relationship(
         back_populates="habit", cascade="all, delete-orphan", uselist=False
     )
+    user: Mapped[User | None] = relationship(back_populates="habits")
 
 
 class HabitSchedule(Base):
@@ -138,6 +252,7 @@ class PushSubscription(Base):
     __tablename__ = "push_subscriptions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     endpoint: Mapped[str] = mapped_column(Text, unique=True)
     p256dh: Mapped[str] = mapped_column(String(255))
     auth: Mapped[str] = mapped_column(String(255))
@@ -154,6 +269,7 @@ class PushSubscription(Base):
     deliveries: Mapped[list["ReminderDelivery"]] = relationship(
         back_populates="subscription", cascade="all, delete-orphan"
     )
+    user: Mapped[User | None] = relationship(back_populates="push_subscriptions")
 
 
 class ReminderDelivery(Base):

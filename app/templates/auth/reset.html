@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}비밀번호 재설정 · Habit Tracker{% endblock %}
+{% block content %}
+  <section class="card" aria-labelledby="reset-title">
+    <h1 id="reset-title">비밀번호 재설정</h1>
+    {% if available %}
+      {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+      <form method="post" action="/reset/{{ raw_token }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="password">새 비밀번호</label>
+        <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password">
+        <label for="password-confirmation">새 비밀번호 확인</label>
+        <input id="password-confirmation" name="password_confirmation" type="password" required minlength="8" autocomplete="new-password">
+        <button type="submit">비밀번호 변경</button>
+      </form>
+    {% else %}
+      <p class="error" role="alert">만료되었거나 이미 사용한 재설정 링크입니다.</p>
+      <a class="button-link" href="/login">로그인으로 돌아가기</a>
+    {% endif %}
+  </section>
+{% endblock %}

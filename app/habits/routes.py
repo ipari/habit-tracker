@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.auth.dependencies import CurrentIdentity, DbSession
+from app.auth.dependencies import DbSession, MemberIdentity
 from app.db.models import Habit, Reminder
 from app.domain.schedules import WEEKDAY_LABELS, mask_to_weekdays, weekdays_to_mask
 from app.habits.service import (
@@ -53,8 +53,10 @@ class HabitListItem:
     reminder_enabled: bool
 
 
-def habit_or_404(db: DbSession, habit_id: int) -> Habit:
-    habit = db.get(Habit, habit_id)
+def habit_or_404(db: DbSession, habit_id: int, user_id: int) -> Habit:
+    habit = db.scalar(
+        select(Habit).where(Habit.id == habit_id, Habit.user_id == user_id)
+    )
     if habit is None:
         raise HTTPException(status_code=404, detail="Habit not found")
     return habit
@@ -193,8 +195,9 @@ def validate_reminder_form(
 
 
 @router.get("/today", response_class=HTMLResponse)
-def today(request: Request, db: DbSession, identity: CurrentIdentity) -> HTMLResponse:
-    local_date = current_local_date(db)
+def today(request: Request, db: DbSession, identity: MemberIdentity) -> HTMLResponse:
+    assert identity.user_id is not None
+    local_date = current_local_date(db, user_id=identity.user_id)
     return render_template(
         request,
         "today.html",
@@ -202,7 +205,7 @@ def today(request: Request, db: DbSession, identity: CurrentIdentity) -> HTMLRes
             "user": identity,
             "local_date": local_date,
             "date_label": date_label(local_date),
-            "habits": today_habits(db, local_date),
+            "habits": today_habits(db, local_date, identity.user_id),
             "save_error": request.query_params.get("save_error") == "1",
         },
     )
@@ -210,11 +213,14 @@ def today(request: Request, db: DbSession, identity: CurrentIdentity) -> HTMLRes
 
 @router.get("/habits", response_class=HTMLResponse)
 def list_habits(
-    request: Request, db: DbSession, _identity: CurrentIdentity
+    request: Request, db: DbSession, identity: MemberIdentity
 ) -> HTMLResponse:
-    local_date = current_local_date(db)
+    assert identity.user_id is not None
+    local_date = current_local_date(db, user_id=identity.user_id)
     habits = db.scalars(
-        select(Habit).order_by(Habit.archived_at.is_not(None), Habit.created_at, Habit.id)
+        select(Habit)
+        .where(Habit.user_id == identity.user_id)
+        .order_by(Habit.archived_at.is_not(None), Habit.created_at, Habit.id)
     ).all()
     active_habits: list[HabitListItem] = []
     archived_habits: list[HabitListItem] = []
@@ -236,7 +242,7 @@ def list_habits(
 
 @router.get("/habits/new", response_class=HTMLResponse)
 def new_habit(
-    request: Request, db: DbSession, _identity: CurrentIdentity
+    request: Request, db: DbSession, _identity: MemberIdentity
 ) -> HTMLResponse:
     return render_template(
         request,
@@ -247,10 +253,11 @@ def new_habit(
 
 @router.get("/habits/{habit_id}", response_class=HTMLResponse)
 def habit_detail(
-    habit_id: int, request: Request, db: DbSession, _identity: CurrentIdentity
+    habit_id: int, request: Request, db: DbSession, identity: MemberIdentity
 ) -> HTMLResponse:
-    habit = habit_or_404(db, habit_id)
-    local_date = current_local_date(db)
+    assert identity.user_id is not None
+    habit = habit_or_404(db, habit_id, identity.user_id)
+    local_date = current_local_date(db, user_id=identity.user_id)
     schedule = effective_schedule(db, habit.id, local_date)
     if schedule is None and habit.archived_at is not None:
         schedule = latest_schedule(db, habit.id)
@@ -289,7 +296,7 @@ def habit_detail(
 def create_habit(
     request: Request,
     db: DbSession,
-    _identity: CurrentIdentity,
+    identity: MemberIdentity,
     name: Annotated[str, Form(max_length=80)],
     background_preset: Annotated[str, Form()],
     csrf_token: Annotated[str, Form()],
@@ -300,7 +307,8 @@ def create_habit(
     reminder_time: Annotated[str, Form(max_length=5)] = "09:00",
 ) -> Response:
     selected = tuple(weekdays or ())
-    timezone = str(application_timezone(db))
+    assert identity.user_id is not None
+    timezone = str(application_timezone(db, identity.user_id))
     values = {
         "name": name,
         "emoji": emoji,
@@ -329,8 +337,9 @@ def create_habit(
             if time_enabled
             else None
         )
-        local_date = current_local_date(db)
+        local_date = current_local_date(db, user_id=identity.user_id)
         habit = Habit(
+            user_id=identity.user_id,
             name=clean_name,
             emoji=clean_emoji,
             background_preset=background_preset,
@@ -376,10 +385,11 @@ def create_habit(
 
 @router.get("/habits/{habit_id}/edit", response_class=HTMLResponse)
 def edit_habit(
-    habit_id: int, request: Request, db: DbSession, _identity: CurrentIdentity
+    habit_id: int, request: Request, db: DbSession, identity: MemberIdentity
 ) -> HTMLResponse:
-    habit = habit_or_404(db, habit_id)
-    local_date = current_local_date(db)
+    assert identity.user_id is not None
+    habit = habit_or_404(db, habit_id, identity.user_id)
+    local_date = current_local_date(db, user_id=identity.user_id)
     schedule = effective_schedule(db, habit.id, local_date)
     if schedule is None and habit.archived_at is not None:
         schedule = latest_schedule(db, habit.id)
@@ -400,10 +410,11 @@ def edit_habit(
 
 @router.get("/habits/{habit_id}/share", response_class=HTMLResponse)
 def share_habit(
-    habit_id: int, request: Request, db: DbSession, _identity: CurrentIdentity
+    habit_id: int, request: Request, db: DbSession, identity: MemberIdentity
 ) -> HTMLResponse:
-    habit = habit_or_404(db, habit_id)
-    local_date = current_local_date(db)
+    assert identity.user_id is not None
+    habit = habit_or_404(db, habit_id, identity.user_id)
+    local_date = current_local_date(db, user_id=identity.user_id)
     start_date = min(
         (habit_schedule.effective_from for habit_schedule in habit.schedules),
         default=local_date,
@@ -427,7 +438,7 @@ def save_habit(
     habit_id: int,
     request: Request,
     db: DbSession,
-    _identity: CurrentIdentity,
+    identity: MemberIdentity,
     name: Annotated[str, Form(max_length=80)],
     background_preset: Annotated[str, Form()],
     csrf_token: Annotated[str, Form()],
@@ -438,10 +449,15 @@ def save_habit(
     reminder_time: Annotated[str, Form(max_length=5)] = "09:00",
     return_to: Annotated[str, Form(max_length=16)] = "habits",
 ) -> Response:
-    habit = habit_or_404(db, habit_id)
+    assert identity.user_id is not None
+    habit = habit_or_404(db, habit_id, identity.user_id)
     reminder = habit.reminder
     selected = tuple(weekdays or ())
-    timezone = reminder.timezone if reminder else str(application_timezone(db))
+    timezone = (
+        reminder.timezone
+        if reminder
+        else str(application_timezone(db, identity.user_id))
+    )
     origin = normalize_return_to(return_to)
     values = {
         "name": name,
@@ -477,7 +493,9 @@ def save_habit(
         habit.name = clean_name
         habit.emoji = clean_emoji
         habit.background_preset = background_preset
-        update_schedule(db, habit, mask, current_local_date(db))
+        update_schedule(
+            db, habit, mask, current_local_date(db, user_id=identity.user_id)
+        )
         if local_time is None:
             remove_reminder(habit)
         else:
@@ -528,17 +546,18 @@ def archive_habit(
     habit_id: int,
     request: Request,
     db: DbSession,
-    _identity: CurrentIdentity,
+    identity: MemberIdentity,
     csrf_token: Annotated[str, Form()],
 ) -> Response:
     if not request_has_valid_csrf(request, csrf_token):
         return HTMLResponse("요청이 만료되었습니다.", status_code=403)
-    habit = habit_or_404(db, habit_id)
+    assert identity.user_id is not None
+    habit = habit_or_404(db, habit_id, identity.user_id)
     if habit.archived_at is not None:
         return RedirectResponse(
             f"/habits/{habit.id}?archived=1", status_code=status.HTTP_303_SEE_OTHER
         )
-    archived_on = current_local_date(db)
+    archived_on = current_local_date(db, user_id=identity.user_id)
     habit.archived_at = datetime.now(UTC)
     pause_schedule(db, habit, archived_on)
     if habit.reminder is not None:
@@ -558,18 +577,19 @@ def restore_habit(
     habit_id: int,
     request: Request,
     db: DbSession,
-    _identity: CurrentIdentity,
+    identity: MemberIdentity,
     csrf_token: Annotated[str, Form()],
 ) -> Response:
     if not request_has_valid_csrf(request, csrf_token):
         return HTMLResponse("요청이 만료되었습니다.", status_code=403)
-    habit = habit_or_404(db, habit_id)
+    assert identity.user_id is not None
+    habit = habit_or_404(db, habit_id, identity.user_id)
     if habit.archived_at is None:
         return RedirectResponse(
             f"/habits/{habit.id}", status_code=status.HTTP_303_SEE_OTHER
         )
     try:
-        restart_habit(db, habit, current_local_date(db))
+        restart_habit(db, habit, current_local_date(db, user_id=identity.user_id))
         db.commit()
     except (SQLAlchemyError, ValueError):
         db.rollback()
@@ -586,14 +606,15 @@ def change_completion(
     local_date: date,
     request: Request,
     db: DbSession,
-    _identity: CurrentIdentity,
+    identity: MemberIdentity,
     completed: Annotated[bool, Form()],
     csrf_token: Annotated[str, Form()],
 ) -> Response:
     if not request_has_valid_csrf(request, csrf_token):
         return HTMLResponse("요청이 만료되었습니다.", status_code=403)
-    habit = habit_or_404(db, habit_id)
-    today = current_local_date(db)
+    assert identity.user_id is not None
+    habit = habit_or_404(db, habit_id, identity.user_id)
+    today = current_local_date(db, user_id=identity.user_id)
     if local_date > today:
         raise HTTPException(status_code=400, detail="Future completions are not allowed")
     try:
@@ -611,6 +632,9 @@ def change_completion(
         return render_template(
             request,
             "habits/_today_list.html",
-            {"habits": today_habits(db, today), "local_date": today},
+            {
+                "habits": today_habits(db, today, identity.user_id),
+                "local_date": today,
+            },
         )
     return RedirectResponse("/today", status_code=status.HTTP_303_SEE_OTHER)

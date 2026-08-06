@@ -8,6 +8,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 
+from app.accounts.routes import router as accounts_router
+from app.admin.routes import router as admin_router
 from app.auth.routes import router as auth_router
 from app.calendar.routes import router as calendar_router
 from app.config import Settings, get_settings
@@ -35,6 +37,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.templates = Jinja2Templates(directory=BASE_DIR / "templates")
     app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
     app.include_router(auth_router)
+    app.include_router(accounts_router)
+    app.include_router(admin_router)
     app.include_router(habits_router)
     app.include_router(calendar_router)
     app.include_router(push_router)
@@ -51,7 +55,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     def root() -> RedirectResponse:
-        return RedirectResponse("/today", status_code=303)
+        return RedirectResponse("/login", status_code=303)
 
     @app.get("/sw.js", include_in_schema=False)
     def service_worker() -> FileResponse:

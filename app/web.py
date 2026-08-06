@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 
-from app.auth.security import create_csrf_token, read_session_token
+from app.auth.security import create_csrf_token
 
 
 def render_template(
@@ -18,8 +18,9 @@ def render_template(
     template_context = dict(context or {})
     template_context["csrf_token"] = csrf_token
     template_context["request_path"] = request.url.path
+    identity = getattr(request.state, "identity", None)
     template_context["show_notification_prompt"] = (
-        read_session_token(settings, request.cookies.get("session")) is not None
+        identity is not None and identity.role == "member"
     )
     response: HTMLResponse = request.app.state.templates.TemplateResponse(
         request=request,

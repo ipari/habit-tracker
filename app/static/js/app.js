@@ -153,6 +153,19 @@ reminderTimeInput?.addEventListener("input", () => {
   }
 });
 
+document.querySelectorAll("[data-copy-value]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const value = button.dataset.copyValue;
+    if (!value || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      button.textContent = "복사됨";
+    } catch {
+      button.textContent = "복사 실패";
+    }
+  });
+});
+
 const deviceTimezoneForm = document.querySelector("[data-device-timezone-form]");
 const deviceTimezoneInput = document.querySelector("[data-device-timezone-input]");
 

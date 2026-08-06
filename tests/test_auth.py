@@ -6,8 +6,14 @@ from fastapi.testclient import TestClient
 
 from app.auth.security import create_session_token, read_session_token
 from app.config import Settings
-from app.main import create_app
-from tests.conftest import TEST_PASSWORD, csrf_token, login, make_settings
+from app.db import Base
+from app.db.session import create_database
+from tests.conftest import (
+    TEST_PASSWORD,
+    client_database,
+    csrf_token,
+    make_settings,
+)
 
 
 def test_login_and_logout(client: TestClient) -> None:
@@ -87,34 +93,46 @@ def test_password_hash_change_invalidates_existing_session(
     tmp_path: Path, password_hash: str
 ) -> None:
     original = make_settings(tmp_path, password_hash)
-    with TestClient(create_app(original)) as first_client:
-        session = login(first_client)
-
+    database = create_database(original)
+    Base.metadata.create_all(database.engine)
+    with database.session_factory() as db:
+        session = create_session_token(original, db, role="admin")
+        db.commit()
     changed = make_settings(tmp_path, PasswordHasher().hash("a completely new password"))
-    with TestClient(create_app(changed)) as restarted_client:
-        restarted_client.cookies.set("session", session)
-        assert restarted_client.get("/today").status_code == 401
+    with database.session_factory() as db:
+        assert read_session_token(changed, db, session) is None
+    database.engine.dispose()
 
 
-def test_tampered_and_expired_sessions_are_rejected(settings: Settings) -> None:
+def test_tampered_and_expired_sessions_are_rejected(
+    client: TestClient, settings: Settings
+) -> None:
     now = datetime.now(UTC)
-    token = create_session_token(settings, now)
-    assert read_session_token(settings, token, now) is not None
-    assert read_session_token(settings, token + "x", now) is None
-    assert read_session_token(settings, token, now + timedelta(days=31)) is None
+    with client_database(client).session_factory() as db:
+        token = create_session_token(settings, db, role="admin", now=now)
+        db.commit()
+        assert read_session_token(settings, db, token, now) is not None
+        assert read_session_token(settings, db, token + "x", now) is None
+        assert read_session_token(settings, db, token, now + timedelta(days=31)) is None
 
 
 def test_session_secret_change_invalidates_existing_session(
     tmp_path: Path, password_hash: str
 ) -> None:
     original = make_settings(tmp_path, password_hash)
-    token = create_session_token(original)
+    database = create_database(original)
+    Base.metadata.create_all(database.engine)
+    with database.session_factory() as db:
+        token = create_session_token(original, db, role="admin")
+        db.commit()
     changed = make_settings(
         tmp_path,
         password_hash,
         session_secret="another-test-secret-that-is-at-least-thirty-two-characters",
     )
-    assert read_session_token(changed, token) is None
+    with database.session_factory() as db:
+        assert read_session_token(changed, db, token) is None
+    database.engine.dispose()
 
 
 def test_health_endpoints(client: TestClient) -> None:

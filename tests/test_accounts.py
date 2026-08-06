@@ -1,0 +1,278 @@
+from typing import cast
+
+from fastapi.testclient import TestClient
+from sqlalchemy import func, select
+
+from app.db.models import AppSettings, Habit, Invitation, User, UserSession
+from tests.conftest import (
+    TEST_PASSWORD,
+    client_database,
+    csrf_token,
+    login,
+)
+from tests.test_habits import create_habit
+
+
+def clear_auth(client: TestClient) -> None:
+    client.cookies.delete("session")
+    client.cookies.delete("csrf")
+
+
+def login_as(client: TestClient, identifier: str, password: str) -> str:
+    clear_auth(client)
+    token = csrf_token(client)
+    response = client.post(
+        "/login",
+        data={"username": identifier, "password": password, "csrf_token": token},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    session = client.cookies.get("session")
+    assert session is not None
+    return cast(str, session)
+
+
+def create_owner_invitation(client: TestClient) -> Invitation:
+    login(client)
+    response = client.post(
+        "/settings/invitations",
+        data={"csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    with client_database(client).session_factory() as db:
+        invitation = db.scalar(select(Invitation).order_by(Invitation.id.desc()))
+        assert invitation is not None
+        db.expunge(invitation)
+        return invitation
+
+
+def signup_with_invitation(
+    client: TestClient, code: str, email: str, password: str = "member password"
+) -> None:
+    clear_auth(client)
+    page = client.get(f"/invite/{code}")
+    assert page.status_code == 200
+    response = client.post(
+        f"/invite/{code}",
+        data={
+            "email": email,
+            "password": password,
+            "password_confirmation": password,
+            "csrf_token": csrf_token(client),
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["location"] == "/today"
+
+
+def test_invitation_is_twelve_characters_and_reusable(client: TestClient) -> None:
+    invitation = create_owner_invitation(client)
+    assert len(invitation.code) == 12
+
+    signup_with_invitation(client, invitation.code, "First@Example.com")
+    signup_with_invitation(client, invitation.code, "second@example.com")
+
+    with client_database(client).session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(User)) == 3
+        stored = db.get(Invitation, invitation.id)
+        assert stored is not None
+        assert stored.is_active is True
+        assert stored.last_joined_at is not None
+        first = db.scalar(
+            select(User).where(User.normalized_email == "first@example.com")
+        )
+        assert first is not None
+        assert first.email == "First@Example.com"
+        assert first.invitation_id == invitation.id
+
+
+def test_canceled_invitation_blocks_new_signup_but_keeps_history(
+    client: TestClient,
+) -> None:
+    invitation = create_owner_invitation(client)
+    settings_page = client.get("/settings")
+    assert "이 초대 링크를 취소하면 다시 활성화할 수 없습니다." in settings_page.text
+    signup_with_invitation(client, invitation.code, "joined@example.com")
+    login_as(client, "owner", TEST_PASSWORD)
+    response = client.post(
+        f"/settings/invitations/{invitation.id}/cancel",
+        data={"csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+    clear_auth(client)
+    assert client.get(f"/invite/{invitation.code}").status_code == 410
+    with client_database(client).session_factory() as db:
+        joined = db.scalar(
+            select(User).where(User.normalized_email == "joined@example.com")
+        )
+        assert joined is not None
+        assert joined.invitation_id == invitation.id
+
+
+def test_admin_and_member_routes_are_role_separated(client: TestClient) -> None:
+    login(client)
+    assert client.get("/admin").status_code == 403
+
+    login_as(client, "admin", TEST_PASSWORD)
+    assert client.get("/admin").status_code == 200
+    assert client.get("/today").status_code == 403
+
+
+def test_habit_settings_and_push_data_are_isolated_by_member(
+    client: TestClient,
+) -> None:
+    owner_habit_id = create_habit(client)
+    invitation = create_owner_invitation(client)
+    signup_with_invitation(client, invitation.code, "other@example.com")
+
+    today = client.get("/today")
+    assert "물 마시기" not in today.text
+    assert client.get(f"/habits/{owner_habit_id}").status_code == 404
+    with client_database(client).session_factory() as db:
+        other = db.scalar(
+            select(User).where(User.normalized_email == "other@example.com")
+        )
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert other is not None and owner is not None
+        assert db.scalar(
+            select(AppSettings.timezone).where(AppSettings.user_id == other.id)
+        ) == "UTC"
+        assert db.scalar(
+            select(Habit.user_id).where(Habit.id == owner_habit_id)
+        ) == owner.id
+
+
+def test_admin_deactivation_revokes_existing_member_sessions(
+    client: TestClient,
+) -> None:
+    member_session = login(client)
+    with client_database(client).session_factory() as db:
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert owner is not None
+        owner_id = owner.id
+
+    login_as(client, "admin", TEST_PASSWORD)
+    response = client.post(
+        f"/admin/users/{owner_id}/status",
+        data={"is_active": "false", "csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+
+    clear_auth(client)
+    client.cookies.set("session", member_session)
+    assert client.get("/today").status_code == 401
+    with client_database(client).session_factory() as db:
+        sessions = db.scalars(
+            select(UserSession).where(UserSession.user_id == owner_id)
+        ).all()
+        assert sessions
+        assert all(session.revoked_at is not None for session in sessions)
+
+
+def test_admin_can_create_invitation_and_one_time_password_reset(
+    client: TestClient,
+) -> None:
+    member_session = login(client)
+    with client_database(client).session_factory() as db:
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert owner is not None
+        owner_id = owner.id
+
+    login_as(client, "admin", TEST_PASSWORD)
+    created = client.post(
+        "/admin/invitations",
+        data={"csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert created.status_code == 303
+    reset = client.post(
+        f"/admin/users/{owner_id}/reset",
+        data={"csrf_token": csrf_token(client)},
+    )
+    assert reset.status_code == 200
+    marker = "/reset/"
+    raw_token = reset.text.split(marker, 1)[1].split("<", 1)[0]
+
+    clear_auth(client)
+    reset_page = client.get(f"{marker}{raw_token}")
+    assert reset_page.status_code == 200
+    changed = client.post(
+        f"{marker}{raw_token}",
+        data={
+            "password": "new member password",
+            "password_confirmation": "new member password",
+            "csrf_token": csrf_token(client),
+        },
+        follow_redirects=False,
+    )
+    assert changed.status_code == 303
+    assert client.get(f"{marker}{raw_token}").status_code == 410
+    clear_auth(client)
+    client.cookies.set("session", member_session)
+    assert client.get("/today").status_code == 401
+    login_as(client, "owner", "new member password")
+    assert client.get("/today").status_code == 200
+
+    with client_database(client).session_factory() as db:
+        admin_invitation = db.scalar(
+            select(Invitation).where(Invitation.created_by_admin.is_(True))
+        )
+        assert admin_invitation is not None
+
+
+def test_admin_delete_removes_owned_data_and_preserves_invitation_history(
+    client: TestClient,
+) -> None:
+    owner_habit_id = create_habit(client)
+    invitation = create_owner_invitation(client)
+    signup_with_invitation(client, invitation.code, "survivor@example.com")
+    with client_database(client).session_factory() as db:
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert owner is not None
+        owner_id = owner.id
+
+    login_as(client, "admin", TEST_PASSWORD)
+    deleted = client.post(
+        f"/admin/users/{owner_id}/delete",
+        data={"csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert deleted.status_code == 303
+    with client_database(client).session_factory() as db:
+        assert db.get(User, owner_id) is None
+        assert db.get(Habit, owner_habit_id) is None
+        survivor = db.scalar(
+            select(User).where(User.normalized_email == "survivor@example.com")
+        )
+        preserved = db.get(Invitation, invitation.id)
+        assert survivor is not None
+        assert preserved is not None
+        assert survivor.invitation_id == preserved.id
+        assert preserved.created_by_user_id is None
+        assert preserved.is_active is False
+
+
+def test_member_password_change_revokes_all_sessions(client: TestClient) -> None:
+    old_session = login(client)
+    response = client.post(
+        "/settings/password",
+        data={
+            "current_password": TEST_PASSWORD,
+            "new_password": "changed member password",
+            "new_password_confirmation": "changed member password",
+            "csrf_token": csrf_token(client),
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"
+    clear_auth(client)
+    client.cookies.set("session", old_session)
+    assert client.get("/today").status_code == 401
+    login_as(client, "owner", "changed member password")
+    assert client.get("/today").status_code == 200

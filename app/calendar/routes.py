@@ -3,9 +3,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.auth.dependencies import CurrentIdentity, DbSession
+from app.auth.dependencies import DbSession, MemberIdentity
 from app.calendar.service import CalendarView, build_calendar_view
 from app.db.models import Habit
 from app.habits.service import current_local_date, set_completion
@@ -50,13 +51,14 @@ def render_calendar(
     db: DbSession,
     month: str | None,
     selected: str | None,
+    user_id: int,
     *,
     fragment: bool,
 ) -> HTMLResponse:
-    today = current_local_date(db)
+    today = current_local_date(db, user_id=user_id)
     month_start = parse_month(month, today)
     selected_date = parse_selected(selected, month_start, today)
-    view = build_calendar_view(db, month_start, selected_date, today)
+    view = build_calendar_view(db, month_start, selected_date, today, user_id)
     template = "calendar/_content.html" if fragment else "calendar/index.html"
     return render_template(
         request,
@@ -69,15 +71,17 @@ def render_calendar(
 def calendar_page(
     request: Request,
     db: DbSession,
-    _identity: CurrentIdentity,
+    identity: MemberIdentity,
     month: str | None = None,
     selected: str | None = None,
 ) -> HTMLResponse:
+    assert identity.user_id is not None
     return render_calendar(
         request,
         db,
         month,
         selected,
+        identity.user_id,
         fragment=request.headers.get("HX-Request") == "true",
     )
 
@@ -88,16 +92,19 @@ def change_calendar_completion(
     local_date: date,
     request: Request,
     db: DbSession,
-    _identity: CurrentIdentity,
+    identity: MemberIdentity,
     completed: Annotated[bool, Form()],
     csrf_token: Annotated[str, Form()],
     month: Annotated[str, Form()],
 ) -> Response:
     if not request_has_valid_csrf(request, csrf_token):
         return HTMLResponse("요청이 만료되었습니다.", status_code=403)
-    if db.get(Habit, habit_id) is None:
+    assert identity.user_id is not None
+    if db.scalar(
+        select(Habit).where(Habit.id == habit_id, Habit.user_id == identity.user_id)
+    ) is None:
         raise HTTPException(status_code=404, detail="Habit not found")
-    today = current_local_date(db)
+    today = current_local_date(db, user_id=identity.user_id)
     if local_date > today:
         raise HTTPException(status_code=400, detail="Future completions are not allowed")
     try:
@@ -120,6 +127,7 @@ def change_calendar_completion(
             db,
             month,
             local_date.isoformat(),
+            identity.user_id,
             fragment=True,
         )
     return RedirectResponse(

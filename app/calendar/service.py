@@ -75,9 +75,12 @@ def month_dates(month_start: date) -> list[list[date]]:
     )
 
 
-def _schedule_map(db: Session) -> dict[int, list[ScheduleWindow]]:
+def _schedule_map(db: Session, user_id: int | None = None) -> dict[int, list[ScheduleWindow]]:
+    statement = select(HabitSchedule).join(HabitSchedule.habit)
+    if user_id is not None:
+        statement = statement.where(Habit.user_id == user_id)
     schedules = db.scalars(
-        select(HabitSchedule).order_by(HabitSchedule.habit_id, HabitSchedule.effective_from)
+        statement.order_by(HabitSchedule.habit_id, HabitSchedule.effective_from)
     ).all()
     result: dict[int, list[ScheduleWindow]] = {}
     for schedule in schedules:
@@ -91,13 +94,15 @@ def _schedule_map(db: Session) -> dict[int, list[ScheduleWindow]]:
     return result
 
 
-def _habit_visible_on(db: Session, habit: Habit, local_date: date) -> bool:
+def _habit_visible_on(
+    db: Session, habit: Habit, local_date: date, user_id: int | None = None
+) -> bool:
     if habit.archived_at is None:
         return True
     archived_at = habit.archived_at
     if archived_at.tzinfo is None:
         archived_at = archived_at.replace(tzinfo=UTC)
-    archived_on = archived_at.astimezone(application_timezone(db)).date()
+    archived_on = archived_at.astimezone(application_timezone(db, user_id)).date()
     return local_date < archived_on
 
 
@@ -135,16 +140,27 @@ def build_calendar_view(
     month_start: date,
     selected_date: date,
     today: date,
+    user_id: int | None = None,
 ) -> CalendarView:
     raw_weeks = month_dates(month_start)
     grid_start, grid_end = raw_weeks[0][0], raw_weeks[-1][-1]
-    habits = db.scalars(select(Habit).order_by(Habit.created_at, Habit.id)).all()
-    schedules = _schedule_map(db)
-    completion_rows = db.execute(
-        select(HabitCompletion.habit_id, HabitCompletion.local_date).where(
+    habit_statement = select(Habit)
+    if user_id is not None:
+        habit_statement = habit_statement.where(Habit.user_id == user_id)
+    habits = db.scalars(habit_statement.order_by(Habit.created_at, Habit.id)).all()
+    schedules = _schedule_map(db, user_id)
+    completion_statement = (
+        select(HabitCompletion.habit_id, HabitCompletion.local_date)
+        .join(HabitCompletion.habit)
+        .where(
             HabitCompletion.local_date >= grid_start,
             HabitCompletion.local_date <= grid_end,
         )
+    )
+    if user_id is not None:
+        completion_statement = completion_statement.where(Habit.user_id == user_id)
+    completion_rows = db.execute(
+        completion_statement
     ).all()
     completions = {(habit_id, local_date) for habit_id, local_date in completion_rows}
 
@@ -157,7 +173,9 @@ def build_calendar_view(
             extra_count = 0
             for habit in habits:
                 window = schedule_for_date(schedules.get(habit.id, []), local_date)
-                if window is None or not _habit_visible_on(db, habit, local_date):
+                if window is None or not _habit_visible_on(
+                    db, habit, local_date, user_id
+                ):
                     continue
                 completed = (habit.id, local_date) in completions
                 scheduled = is_scheduled(window, local_date)
@@ -189,7 +207,7 @@ def build_calendar_view(
     additional_habits: list[CalendarHabit] = []
     for habit in habits:
         window = schedule_for_date(schedules.get(habit.id, []), selected_date)
-        if window is None or not _habit_visible_on(db, habit, selected_date):
+        if window is None or not _habit_visible_on(db, habit, selected_date, user_id):
             continue
         completed = (habit.id, selected_date) in completions
         scheduled = is_scheduled(window, selected_date)

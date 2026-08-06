@@ -53,16 +53,21 @@ def habit_card_sort_key(completed: bool, habit: Habit) -> tuple[bool, bool, time
     )
 
 
-def application_timezone(db: Session) -> ZoneInfo:
-    settings = db.get(AppSettings, 1)
+def application_timezone(db: Session, user_id: int | None = None) -> ZoneInfo:
+    statement = select(AppSettings)
+    if user_id is not None:
+        statement = statement.where(AppSettings.user_id == user_id)
+    settings = db.scalar(statement.order_by(AppSettings.id).limit(1))
     if settings is None:
         raise RuntimeError("Application settings are not initialized")
     return ZoneInfo(settings.timezone)
 
 
-def current_local_date(db: Session, now: datetime | None = None) -> date:
+def current_local_date(
+    db: Session, now: datetime | None = None, *, user_id: int | None = None
+) -> date:
     instant = now or datetime.now(UTC)
-    return instant.astimezone(application_timezone(db)).date()
+    return instant.astimezone(application_timezone(db, user_id)).date()
 
 
 def schedule_windows(db: Session, habit_id: int) -> list[ScheduleWindow]:
@@ -140,7 +145,7 @@ def restart_habit(db: Session, habit: Habit, restarted_on: date) -> None:
     if archived_at is not None and archived_at.tzinfo is None:
         archived_at = archived_at.replace(tzinfo=UTC)
     archived_on = (
-        archived_at.astimezone(application_timezone(db)).date()
+        archived_at.astimezone(application_timezone(db, habit.user_id)).date()
         if archived_at is not None
         else None
     )
@@ -160,7 +165,7 @@ def restart_habit(db: Session, habit: Habit, restarted_on: date) -> None:
     habit.archived_at = None
     if habit.reminder is not None:
         habit.reminder.weekdays_mask = schedule.weekdays_mask
-        habit.reminder.timezone = str(application_timezone(db))
+        habit.reminder.timezone = str(application_timezone(db, habit.user_id))
         habit.reminder.is_enabled = habit.reminder.local_time is not None
 
 
@@ -207,15 +212,21 @@ def habit_streak(db: Session, habit_id: int, as_of: date) -> int:
     return calculate_streak(as_of, schedules, completions)
 
 
-def today_habits(db: Session, local_date: date) -> list[TodayHabit]:
-    habits = db.scalars(
-        select(Habit).where(Habit.archived_at.is_(None)).order_by(Habit.created_at, Habit.id)
-    ).all()
-    completed_ids = set(
-        db.scalars(
-            select(HabitCompletion.habit_id).where(HabitCompletion.local_date == local_date)
-        ).all()
+def today_habits(
+    db: Session, local_date: date, user_id: int | None = None
+) -> list[TodayHabit]:
+    statement = select(Habit).where(Habit.archived_at.is_(None))
+    if user_id is not None:
+        statement = statement.where(Habit.user_id == user_id)
+    habits = db.scalars(statement.order_by(Habit.created_at, Habit.id)).all()
+    completion_statement = (
+        select(HabitCompletion.habit_id)
+        .join(HabitCompletion.habit)
+        .where(HabitCompletion.local_date == local_date)
     )
+    if user_id is not None:
+        completion_statement = completion_statement.where(Habit.user_id == user_id)
+    completed_ids = set(db.scalars(completion_statement).all())
     result: list[TodayHabit] = []
     for habit in habits:
         windows = schedule_windows(db, habit.id)

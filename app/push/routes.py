@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.auth.dependencies import CurrentIdentity, DbSession
+from app.auth.dependencies import DbSession, MemberIdentity
 from app.db.models import PushSubscription
 from app.web import request_has_valid_csrf
 
@@ -59,7 +59,7 @@ def require_json_csrf(request: Request) -> None:
 
 
 @router.get("/config")
-def push_config(request: Request, _identity: CurrentIdentity) -> dict[str, str | bool]:
+def push_config(request: Request, _identity: MemberIdentity) -> dict[str, str | bool]:
     settings = request.app.state.settings
     return {
         "configured": settings.push_is_configured,
@@ -72,16 +72,22 @@ def save_subscription(
     payload: SubscriptionPayload,
     request: Request,
     db: DbSession,
-    _identity: CurrentIdentity,
+    identity: MemberIdentity,
 ) -> dict[str, str]:
+    assert identity.user_id is not None
     require_json_csrf(request)
     if not request.app.state.settings.push_is_configured:
         raise HTTPException(status_code=503, detail="Web Push is not configured")
     subscription = db.scalar(
-        select(PushSubscription).where(PushSubscription.endpoint == payload.endpoint)
+        select(PushSubscription).where(
+            PushSubscription.endpoint == payload.endpoint,
+            PushSubscription.user_id == identity.user_id,
+        )
     )
     if subscription is None:
-        subscription = PushSubscription(endpoint=payload.endpoint)
+        subscription = PushSubscription(
+            endpoint=payload.endpoint, user_id=identity.user_id
+        )
         db.add(subscription)
     subscription.p256dh = payload.keys.p256dh
     subscription.auth = payload.keys.auth
@@ -112,11 +118,15 @@ def disable_subscription(
     payload: UnsubscribePayload,
     request: Request,
     db: DbSession,
-    _identity: CurrentIdentity,
+    identity: MemberIdentity,
 ) -> dict[str, str]:
+    assert identity.user_id is not None
     require_json_csrf(request)
     subscription = db.scalar(
-        select(PushSubscription).where(PushSubscription.endpoint == payload.endpoint)
+        select(PushSubscription).where(
+            PushSubscription.endpoint == payload.endpoint,
+            PushSubscription.user_id == identity.user_id,
+        )
     )
     if subscription is not None:
         subscription.is_active = False

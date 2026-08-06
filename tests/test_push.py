@@ -11,7 +11,7 @@ from pywebpush import webpush  # type: ignore[import-untyped]
 from sqlalchemy import func, select
 
 from app.config import Settings
-from app.db import AppSettings, Base
+from app.db import AppSettings, Base, User
 from app.db.models import PushSubscription
 from app.main import create_app
 from app.push.generate_vapid_keys import main as generate_vapid_keys
@@ -48,7 +48,14 @@ def push_client(tmp_path: Path, password_hash: str) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         Base.metadata.create_all(app.state.database.engine)
         with app.state.database.session_factory() as db:
-            db.add(AppSettings(id=1, timezone="Asia/Seoul"))
+            user = User(
+                email="owner",
+                normalized_email="owner",
+                password_hash=password_hash,
+            )
+            db.add(user)
+            db.flush()
+            db.add(AppSettings(id=1, user_id=user.id, timezone="Asia/Seoul"))
             db.commit()
         yield test_client
 
@@ -147,6 +154,66 @@ def test_current_device_subscription_can_be_disabled(push_client: TestClient) ->
         subscription = db.scalar(select(PushSubscription))
         assert subscription is not None
         assert subscription.is_active is False
+
+
+def test_other_member_cannot_disable_or_take_over_subscription(
+    push_client: TestClient,
+) -> None:
+    login(push_client)
+    payload = subscription_payload()
+    owner_csrf = csrf_token(push_client)
+    assert push_client.post(
+        "/api/push/subscriptions",
+        json=payload,
+        headers={"X-CSRF-Token": owner_csrf},
+    ).status_code == 201
+    app = cast(FastAPI, push_client.app)
+    with app.state.database.session_factory() as db:
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert owner is not None
+        other = User(
+            email="other@example.com",
+            normalized_email="other@example.com",
+            password_hash=owner.password_hash,
+        )
+        db.add(other)
+        db.flush()
+        db.add(AppSettings(user_id=other.id, timezone="UTC"))
+        db.commit()
+        other_id = other.id
+
+    push_client.cookies.delete("session")
+    push_client.cookies.delete("csrf")
+    token = csrf_token(push_client)
+    signed_in = push_client.post(
+        "/login",
+        data={
+            "username": "other@example.com",
+            "password": "correct horse battery staple",
+            "csrf_token": token,
+        },
+        follow_redirects=False,
+    )
+    assert signed_in.status_code == 303
+    other_csrf = csrf_token(push_client)
+    disabled = push_client.request(
+        "DELETE",
+        "/api/push/subscriptions",
+        json={"endpoint": payload["endpoint"]},
+        headers={"X-CSRF-Token": other_csrf},
+    )
+    assert disabled.status_code == 200
+    takeover = push_client.post(
+        "/api/push/subscriptions",
+        json=payload,
+        headers={"X-CSRF-Token": other_csrf},
+    )
+    assert takeover.status_code == 503
+    with app.state.database.session_factory() as db:
+        subscription = db.scalar(select(PushSubscription))
+        assert subscription is not None
+        assert subscription.is_active is True
+        assert subscription.user_id != other_id
 
 
 def test_partial_vapid_configuration_is_rejected(password_hash: str) -> None:

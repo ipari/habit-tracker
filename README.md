@@ -1,11 +1,13 @@
 # Habit Tracker
 
-여러 스마트폰과 브라우저에서 같은 기록을 사용할 수 있는 개인용 습관 트래커입니다. iPhone과 Android의 홈 화면에 설치할 수 있는 모바일 우선 PWA이며, 자신의 서버에서 가볍게 운영하도록 설계했습니다.
+초대받은 여러 회원이 각자의 스마트폰과 브라우저에서 개인 기록을 사용할 수 있는 습관 트래커입니다. iPhone과 Android의 홈 화면에 설치할 수 있는 모바일 우선 PWA이며, 자신의 서버에서 가볍게 운영하도록 설계했습니다.
 
 - 오늘과 과거 날짜의 습관을 체크하고 수행 요일 변경 이력을 보존합니다.
 - 예정일과 추가 달성을 함께 반영한 현재 연속 달성 횟수를 보여줍니다.
 - 습관별 시간 알림을 Web Push로 받고 여러 기기의 데이터를 동기화합니다.
 - 습관과 streak를 내장 그라데이션이 적용된 9:16 이미지로 공유합니다.
+- 기존 회원과 admin이 반복 사용 가능한 초대 링크를 만들고 취소할 수 있습니다.
+- `.env`의 admin은 회원·초대·비밀번호 재설정 링크를 관리하지만 회원의 습관 내용에는 접근할 수 없습니다.
 
 ## 스크린샷
 
@@ -42,7 +44,7 @@ python3 -m venv .venv
 cp .env.example .env
 ```
 
-8자 이상의 비밀번호로 Argon2id 해시를 생성합니다. 비밀번호는 명령 인자나 `.env`에 평문으로 저장하지 않습니다.
+admin용 8자 이상의 비밀번호로 Argon2id 해시를 생성합니다. 비밀번호는 명령 인자나 `.env`에 평문으로 저장하지 않습니다.
 
 ```bash
 .venv/bin/python -m app.auth.hash_password
@@ -51,7 +53,7 @@ cp .env.example .env
 최소 실행 설정을 `.env`에 입력합니다.
 
 ```dotenv
-HABIT_TRACKER_USERNAME=owner
+HABIT_TRACKER_USERNAME=admin
 HABIT_TRACKER_PASSWORD_HASH='<생성한 Argon2id 해시>'
 SESSION_SECRET=<32자 이상의 무작위 비밀 키>
 SESSION_COOKIE_SECURE=false
@@ -67,6 +69,51 @@ chmod 600 .env
 ```
 
 이후 `http://127.0.0.1:8000`에 접속합니다.
+
+`.env` 계정은 회원 관리 전용 admin입니다. admin으로 로그인해 초대 링크를 생성한 뒤, 해당 링크에서 일반 회원 계정을 만들어 습관 기능을 사용합니다. 일반 회원은 설정에서 자신의 초대 링크와 비밀번호를 관리할 수 있습니다.
+
+### 기존 단일 사용자 데이터 이전
+
+기존 버전에서 업그레이드하면 Alembic이 사용자별 소유권 컬럼을 추가하지만, 기존 데이터의 소유자는 임의로 결정하지 않습니다. 스키마 업그레이드가 끝난 뒤 API 컨테이너에서 다음 명령을 한 번 실행합니다.
+
+`20260801_0005`에서 다중 사용자 스키마로 올라갈 때 `habits`와 `push_subscriptions`는 SQLite batch 테이블 재생성을 사용하지 않고 nullable 외래 키 컬럼을 네이티브로 추가합니다. 마이그레이션은 습관·일정·달성·알림·푸시 구독·발송 이력의 전후 행 수와 외래 키 무결성을 확인합니다.
+
+본래 DB에 적용하기 전에는 실행 중인 DB 파일을 단순 복사하지 말고 SQLite Online Backup API로 Compose volume 밖에 수동 백업합니다. 다음 명령은 API의 일반 시작 명령을 덮어쓰므로 Alembic을 실행하지 않습니다.
+
+```bash
+mkdir -p backups
+backup_stamp=$(date +%Y%m%d-%H%M%S)
+backup_name="habit_tracker-pre-multiuser-${backup_stamp}.db"
+
+docker compose run --rm --no-deps -T \
+  -v "$PWD/backups:/backup" \
+  api python - "/backup/$backup_name" <<'PY'
+import sqlite3
+import sys
+
+source = sqlite3.connect("file:/data/habit_tracker.db?mode=ro", uri=True)
+target = sqlite3.connect(sys.argv[1])
+try:
+    source.backup(target)
+    check = target.execute("PRAGMA quick_check").fetchone()[0]
+    if check != "ok":
+        raise RuntimeError(f"백업 무결성 검사 실패: {check}")
+finally:
+    target.close()
+    source.close()
+print(sys.argv[1])
+PY
+```
+
+백업 복사본에서 먼저 `alembic upgrade head`와 아래 사용자 이전 명령을 시험하고, 주요 테이블의 행 수를 대조한 뒤 본래 DB에 적용합니다. API 서비스는 시작할 때 자동으로 `alembic upgrade head`를 실행하므로 백업과 시험 검증 전에는 본래 DB를 새 API 이미지에 연결해 시작하지 않습니다.
+
+```bash
+docker compose exec api python -m app.accounts.migrate_legacy_user
+```
+
+명령은 이전 대상 일반 회원의 이메일과 8자 이상 초기 비밀번호를 대화형으로 입력받습니다. 평문 비밀번호는 셸 인자나 로그에 남기지 않고 Argon2id 해시만 저장하며, 기존 시간대·습관·일정·달성 기록·알림·푸시 구독을 해당 회원에게 연결합니다. 기존 `.env` 계정은 데이터가 없는 admin으로 유지됩니다.
+
+명령은 연결한 설정·습관·푸시 구독 수와 현재 DB의 전체·회원 소유 습관 수를 출력합니다. 회원만 생성되고 데이터가 연결되지 않았다면 같은 이메일로 다시 실행할 수 있으며, 이때 비밀번호를 변경하지 않고 아직 소유자가 없는 데이터만 연결합니다. `전체 습관 0개`가 출력되면 기존 DB가 아닌 다른 Compose named volume 또는 `DATABASE_URL`을 사용 중인지 확인해야 합니다. 이미 다른 회원 소유로 지정된 데이터는 자동으로 가져오지 않습니다.
 
 ## Web Push 알림
 

@@ -7,8 +7,8 @@
     {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
     <form method="post" action="/login">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label for="username">아이디</label>
-      <input id="username" name="username" required maxlength="64" autocomplete="username">
+      <label for="username">아이디 또는 이메일</label>
+      <input id="username" name="username" required maxlength="254" autocomplete="username">
       <label for="password">비밀번호</label>
       <div class="password-field">
         <input id="password" name="password" type="password" required autocomplete="current-password">

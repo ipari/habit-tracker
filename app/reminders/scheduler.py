@@ -107,11 +107,14 @@ def run_once(
         .join(Reminder.habit)
         .where(Reminder.is_enabled.is_(True), Habit.archived_at.is_(None))
     ).all()
-    subscriptions = db.scalars(
-        select(PushSubscription).where(PushSubscription.is_active.is_(True))
-    ).all()
     attempts = 0
     for reminder in reminders:
+        subscriptions = db.scalars(
+            select(PushSubscription).where(
+                PushSubscription.is_active.is_(True),
+                PushSubscription.user_id == reminder.habit.user_id,
+            )
+        ).all()
         occurrences = scheduled_occurrences(
             weekdays_mask=reminder.weekdays_mask,
             local_time=reminder.local_time,

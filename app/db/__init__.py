@@ -4,9 +4,13 @@ from app.db.models import (
     Habit,
     HabitCompletion,
     HabitSchedule,
+    Invitation,
+    PasswordResetToken,
     PushSubscription,
     Reminder,
     ReminderDelivery,
+    User,
+    UserSession,
 )
 
 __all__ = [
@@ -15,7 +19,11 @@ __all__ = [
     "Habit",
     "HabitCompletion",
     "HabitSchedule",
+    "Invitation",
+    "PasswordResetToken",
     "PushSubscription",
     "Reminder",
     "ReminderDelivery",
+    "User",
+    "UserSession",
 ]
