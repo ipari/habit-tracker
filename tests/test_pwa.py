@@ -16,7 +16,7 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     assert 'rel="manifest" href="http://testserver/static/manifest.webmanifest"' in response.text
     assert 'src="http://testserver/static/vendor/htmx-2.0.10.min.js"' in response.text
     assert 'src="http://testserver/static/js/theme.js?v=1"' in response.text
-    assert 'href="http://testserver/static/css/app.css?v=52"' in response.text
+    assert 'href="http://testserver/static/css/app.css?v=53"' in response.text
     assert 'href="http://testserver/static/icons/favicon.svg?v=3"' in response.text
     assert 'href="http://testserver/static/icons/app-icon-180.png?v=5"' in response.text
 
@@ -47,6 +47,10 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     assert ".app-alert-actions button:focus-visible" in stylesheet.text
     assert ".member-details" in stylesheet.text
     assert "background: transparent" in stylesheet.text
+    assert ".secondary:hover, .button-link.secondary:hover" in stylesheet.text
+    assert "background: var(--completion-idle-hover); color: var(--threads-text)" in stylesheet.text
+    assert ".danger-secondary:hover { background: #ffe2df; color: #b42318; }" in stylesheet.text
+    assert ':root[data-theme="dark"] .danger-secondary:hover' in stylesheet.text
 
 
 def test_manifest_defines_standalone_app(client: TestClient) -> None:
@@ -106,7 +110,7 @@ def test_installed_app_offers_notification_permission_after_user_action(
     assert '"/static/js/share.js?v=2"' in worker.text
     assert '"/static/js/theme.js?v=1"' in worker.text
     assert '"/static/js/password-visibility.js?v=3"' in worker.text
-    assert '"/static/css/app.css?v=52"' in worker.text
+    assert '"/static/css/app.css?v=53"' in worker.text
     assert '"/static/js/app.js?v=9"' in worker.text
     assert '"/static/icons/favicon.svg?v=3"' in worker.text
     assert '"/static/icons/app-icon-512.png?v=5"' in worker.text

@@ -337,9 +337,10 @@ button,
   font-weight: 650;
 }
 
-button:hover, .button-link:hover { background: #242424; }
+button:hover, .button-link:hover { background: color-mix(in srgb, var(--threads-strong) 82%, var(--threads-bg)); color: var(--threads-bg); }
 button:focus-visible, input:focus-visible, a:focus-visible { outline-color: var(--threads-text); }
 .secondary, .button-link.secondary { background: var(--threads-raised); color: var(--threads-text); }
+.secondary:hover, .button-link.secondary:hover { background: var(--completion-idle-hover); color: var(--threads-text); }
 
 input {
   border-color: var(--threads-border);
@@ -417,6 +418,7 @@ input {
 .preset-option input:checked + span { border-color: var(--threads-strong); }
 .archive-form { border-color: var(--threads-border); }
 .danger-secondary { background: #fff1f0; color: #d70015; }
+.danger-secondary:hover { background: #ffe2df; color: #b42318; }
 
 .calendar-card { padding: 1rem .75rem; }
 .month-button { border-radius: 50%; background: var(--threads-raised); color: var(--threads-text); }
@@ -619,7 +621,8 @@ input {
   .legend-dot.partial { background: #ffd60a; }
   .legend-dot.missed { background: #8e8e93; }
   .secondary, .button-link.secondary, .detail-action, .month-button { border: 1px solid var(--threads-border); background: #121214; color: var(--threads-text); }
-  .detail-action:hover, .secondary:hover, .button-link.secondary:hover, .month-button:hover { background: #242426; }
+  .detail-action:hover, .secondary:hover, .button-link.secondary:hover, .month-button:hover { background: #242426; color: var(--threads-text); }
+  .danger-secondary:hover { background: #431416; color: #ff8a84; }
   .detail-delete .detail-action { border-color: #5b2428; background: #251113; color: #ff6961; }
   .detail-delete .detail-action:hover { background: #351719; }
   .settings-form, .settings-row, .settings-button { background: var(--threads-surface); }
@@ -906,7 +909,8 @@ body { padding-bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
 :root[data-theme="dark"] .detail-action:hover,
 :root[data-theme="dark"] .secondary:hover,
 :root[data-theme="dark"] .button-link.secondary:hover,
-:root[data-theme="dark"] .month-button:hover { background: #242426; }
+:root[data-theme="dark"] .month-button:hover { background: #242426; color: var(--threads-text); }
+:root[data-theme="dark"] .danger-secondary:hover { background: #431416; color: #ff8a84; }
 :root[data-theme="dark"] .detail-delete .detail-action { border-color: #5b2428; background: #251113; color: #ff6961; }
 :root[data-theme="dark"] .detail-delete .detail-action:hover { background: #351719; }
 :root[data-theme="dark"] .settings-form,
