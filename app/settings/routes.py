@@ -2,7 +2,7 @@ from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Form, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -201,22 +201,33 @@ def change_member_password(
     new_password_confirmation: Annotated[str, Form(max_length=1024)],
     csrf_token: Annotated[str, Form()],
 ) -> Response:
+    accepts_json = "application/json" in request.headers.get("accept", "")
+
+    def error_response(message: str, status_code: int) -> Response:
+        if accepts_json:
+            return JSONResponse({"error": message}, status_code=status_code)
+        return HTMLResponse(message, status_code=status_code)
+
     if not request_has_valid_csrf(request, csrf_token):
-        return HTMLResponse("요청이 만료되었습니다.", status_code=403)
+        return error_response("요청이 만료되었습니다.", 403)
     assert identity.user_id is not None
     user = db.get(User, identity.user_id)
     if user is None or not verify_password(user.password_hash, current_password):
-        return HTMLResponse("현재 비밀번호를 확인해 주세요.", status_code=422)
+        return error_response("현재 비밀번호를 확인해 주세요.", 422)
     if len(new_password) < 8 or new_password != new_password_confirmation:
-        return HTMLResponse("새 비밀번호와 확인을 올바르게 입력해 주세요.", status_code=422)
+        return error_response("새 비밀번호와 확인을 올바르게 입력해 주세요.", 422)
     try:
         user.password_hash = password_hasher.hash(new_password)
         revoke_user_sessions(db, user.id)
         db.commit()
     except SQLAlchemyError:
         db.rollback()
-        return HTMLResponse("비밀번호를 변경하지 못했습니다.", status_code=503)
-    response = RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
+        return error_response("비밀번호를 변경하지 못했습니다.", 503)
+    response: Response
+    if accepts_json:
+        response = JSONResponse({"redirect_url": "/login"})
+    else:
+        response = RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
     response.delete_cookie(
         "session",
         secure=request.app.state.settings.session_cookie_secure,

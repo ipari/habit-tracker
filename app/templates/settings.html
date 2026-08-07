@@ -61,29 +61,34 @@
   </section>
 
   <section class="settings-group" aria-labelledby="invitation-settings-title">
-    <div class="section-heading-row">
-      <h2 id="invitation-settings-title" class="section-title">초대 링크</h2>
-      {% if not invitation %}
+    <h2 id="invitation-settings-title" class="section-title">초대 링크</h2>
+    <div class="settings-surface invitation-surface">
+      {% if invitation %}
+        <article class="member-invite-card">
+          <div class="member-invite-link" title="{{ invitation.url }}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 13.5a4.25 4.25 0 0 0 6 0l2-2a4.24 4.24 0 0 0-6-6l-1.15 1.15M13.5 10.5a4.25 4.25 0 0 0-6 0l-2 2a4.24 4.24 0 0 0 6 6l1.15-1.15"/></svg>
+            <span>{{ invitation.url }}</span>
+          </div>
+          <div class="member-invite-footer">
+            <p><strong>가입 {{ invitation.joined_count }}명</strong><span>{{ invitation.invitation.created_at.strftime('%Y.%m.%d') }} 생성{% if invitation.invitation.last_joined_at %} · {{ invitation.invitation.last_joined_at.strftime('%Y.%m.%d') }} 마지막 가입{% endif %}</span></p>
+            <div class="member-invite-actions">
+              <button class="secondary compact" type="button" data-copy-value="{{ invitation.url }}" aria-label="초대 링크 복사">복사</button>
+              <form method="post" action="/settings/invitations/{{ invitation.invitation.id }}/cancel" data-confirm="이 초대 링크를 삭제하면 신규 가입이 중단됩니다. 기존 가입 회원과 가입 이력은 유지됩니다.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="danger-secondary compact" type="submit">삭제</button>
+              </form>
+            </div>
+          </div>
+        </article>
+      {% else %}
+        <div class="member-invite-empty">
+          <p>링크를 공유하여 다른 사람을 초대하세요.</p>
         <form method="post" action="/settings/invitations">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button class="secondary compact" type="submit">생성</button>
         </form>
+        </div>
       {% endif %}
-    </div>
-    <div class="settings-surface">
-      {% if invitation %}
-        <article class="admin-item">
-          <div class="invite-link-row">
-            <span class="invite-url">{{ invitation.url }}</span>
-            <button class="secondary compact" type="button" data-copy-value="{{ invitation.url }}" aria-label="초대 링크 복사">복사</button>
-          </div>
-          <p class="settings-detail">{{ invitation.invitation.created_at.strftime('%Y-%m-%d') }} 생성 · 가입 {{ invitation.joined_count }}명{% if invitation.invitation.last_joined_at %} · 마지막 가입 {{ invitation.invitation.last_joined_at.strftime('%Y-%m-%d') }}{% endif %}</p>
-          <form method="post" action="/settings/invitations/{{ invitation.invitation.id }}/cancel" data-confirm="이 초대 링크를 삭제하면 신규 가입이 중단됩니다. 기존 가입 회원과 가입 이력은 유지됩니다.">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button class="danger-secondary compact" type="submit">삭제</button>
-          </form>
-        </article>
-      {% else %}<p class="settings-surface-message muted">활성 초대 링크가 없습니다.</p>{% endif %}
     </div>
   </section>
 
@@ -94,24 +99,42 @@
         <span>로그인 이메일</span>
         <span class="settings-value">{{ user.username }}</span>
       </div>
-      <details class="settings-password">
-        <summary>비밀번호 변경</summary>
-        <form class="settings-action" method="post" action="/settings/password">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <label for="current-password">현재 비밀번호</label>
-          <input id="current-password" name="current_password" type="password" required autocomplete="current-password">
-          <label for="new-password">새 비밀번호</label>
-          <input id="new-password" name="new_password" type="password" required minlength="8" autocomplete="new-password">
-          <label for="new-password-confirmation">새 비밀번호 확인</label>
-          <input id="new-password-confirmation" name="new_password_confirmation" type="password" required minlength="8" autocomplete="new-password">
-          <button class="settings-button" type="submit">비밀번호 변경</button>
-        </form>
-      </details>
+      <button class="settings-row settings-navigation-row" type="button" data-password-dialog-open aria-haspopup="dialog" aria-controls="password-dialog">
+        <span>비밀번호 변경</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+      </button>
       <form class="settings-action" method="post" action="/logout">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button class="settings-button" type="submit">로그아웃</button>
       </form>
     </div>
   </section>
+  <dialog id="password-dialog" class="settings-password-dialog" aria-labelledby="password-dialog-title">
+    <form method="post" action="/settings/password" data-password-change-form>
+      <header>
+        <div>
+          <h2 id="password-dialog-title">비밀번호 변경</h2>
+          <p>변경 후 모든 기기에서 다시 로그인해야 합니다.</p>
+        </div>
+        <button type="button" class="dialog-close" data-password-dialog-close aria-label="비밀번호 변경 닫기">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </header>
+      <div class="settings-password-fields">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="current-password">현재 비밀번호</label>
+        <input id="current-password" name="current_password" type="password" required autocomplete="current-password">
+        <label for="new-password">새 비밀번호</label>
+        <input id="new-password" name="new_password" type="password" required minlength="8" autocomplete="new-password">
+        <label for="new-password-confirmation">새 비밀번호 확인</label>
+        <input id="new-password-confirmation" name="new_password_confirmation" type="password" required minlength="8" autocomplete="new-password">
+        <p class="settings-password-error" role="alert" tabindex="-1" data-password-error hidden></p>
+      </div>
+      <footer>
+        <button type="button" class="secondary" data-password-dialog-close>취소</button>
+        <button type="submit">변경</button>
+      </footer>
+    </form>
+  </dialog>
 {% endblock %}
 {% block tabbar %}{% include "_tab_bar.html" %}{% endblock %}

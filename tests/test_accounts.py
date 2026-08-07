@@ -63,10 +63,12 @@ def test_admin_page_groups_invitation_action_and_shows_member_count(
     invitation_section = page.text.split(
         'aria-labelledby="admin-invitation-title"', 1
     )[1].split("</section>", 1)[0]
-    assert invitation_section.index('class="settings-surface admin-surface"') < (
+    assert invitation_section.index(
+        'class="settings-surface admin-surface invitation-surface"'
+    ) < (
         invitation_section.index('action="/admin/invitations"')
     )
-    assert 'class="admin-empty-action"' in invitation_section
+    assert 'class="member-invite-empty"' in invitation_section
 
 
 def test_admin_member_list_is_compact_and_shows_relative_last_access(
@@ -280,7 +282,8 @@ def test_admin_separates_own_link_and_can_force_disable_member_link(
     admin_invitation_section = page.text.split(
         'aria-labelledby="admin-invitation-title"', 1
     )[1].split("</section>", 1)[0]
-    assert 'class="admin-item admin-invite-card"' in admin_invitation_section
+    assert 'class="member-invite-card"' in admin_invitation_section
+    assert 'class="member-invite-link"' in admin_invitation_section
     assert "가입 0명" in admin_invitation_section
     assert "생성 ·" not in admin_invitation_section
     assert "마지막 가입" not in admin_invitation_section

@@ -202,6 +202,82 @@ document.querySelectorAll("[data-reset-link-form]").forEach((form) => {
   });
 });
 
+const passwordDialog = document.querySelector("#password-dialog");
+const passwordDialogOpen = document.querySelector("[data-password-dialog-open]");
+const passwordDialogCloseButtons = document.querySelectorAll("[data-password-dialog-close]");
+const passwordChangeForm = document.querySelector("[data-password-change-form]");
+const passwordChangeError = document.querySelector("[data-password-error]");
+
+function closePasswordDialog() {
+  if (!passwordDialog?.open) return;
+  passwordDialog.close();
+  document.documentElement.classList.remove("app-modal-open");
+  passwordChangeForm?.reset();
+  if (passwordChangeError) {
+    passwordChangeError.hidden = true;
+    passwordChangeError.textContent = "";
+  }
+  passwordDialogOpen?.focus();
+}
+
+passwordDialogOpen?.addEventListener("click", () => {
+  if (!passwordDialog) return;
+  document.documentElement.classList.add("app-modal-open");
+  passwordDialog.showModal();
+  passwordDialog.querySelector("#current-password")?.focus();
+});
+
+passwordDialogCloseButtons.forEach((button) => {
+  button.addEventListener("click", closePasswordDialog);
+});
+
+passwordDialog?.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closePasswordDialog();
+});
+
+passwordDialog?.addEventListener("click", (event) => {
+  if (event.target === passwordDialog) closePasswordDialog();
+});
+
+passwordChangeForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!navigator.onLine) {
+    updateConnectionStatus();
+    offlineStatus?.focus();
+    return;
+  }
+
+  const submitButton = passwordChangeForm.querySelector('button[type="submit"]');
+  if (passwordChangeError) {
+    passwordChangeError.hidden = true;
+    passwordChangeError.textContent = "";
+  }
+  if (submitButton) submitButton.disabled = true;
+
+  try {
+    const response = await fetch(passwordChangeForm.action, {
+      method: "POST",
+      body: new FormData(passwordChangeForm),
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.redirect_url) {
+      throw new Error(payload.error || "비밀번호를 변경하지 못했습니다.");
+    }
+    window.location.assign(payload.redirect_url);
+  } catch (error) {
+    if (passwordChangeError) {
+      passwordChangeError.textContent = error.message || "비밀번호를 변경하지 못했습니다.";
+      passwordChangeError.hidden = false;
+      passwordChangeError.focus();
+    }
+  } finally {
+    if (submitButton) submitButton.disabled = false;
+  }
+});
+
 const deviceTimezoneForm = document.querySelector("[data-device-timezone-form]");
 const deviceTimezoneInput = document.querySelector("[data-device-timezone-input]");
 

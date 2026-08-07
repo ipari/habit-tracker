@@ -24,7 +24,7 @@ def test_settings_uses_device_iana_timezone(client: TestClient) -> None:
     assert "기존 알림은 같은 현지 시각을 유지" not in response.text
     assert "날짜와 알림에 사용할" not in response.text
     assert "common-timezones" not in response.text
-    assert response.text.count('class="settings-surface"') == 3
+    assert response.text.count('<div class="settings-surface') == 3
     assert 'data-theme-options' in response.text
     assert 'value="system"' in response.text
     assert 'value="light"' in response.text
@@ -36,10 +36,23 @@ def test_settings_uses_device_iana_timezone(client: TestClient) -> None:
     assert 'aria-label="시스템 설정"' in response.text
     assert 'aria-label="Light"' in response.text
     assert 'aria-label="Dark"' in response.text
+    assert 'id="password-dialog"' in response.text
+    assert 'data-password-dialog-open' in response.text
+    assert 'data-password-change-form' in response.text
+    assert '<details class="settings-password">' not in response.text
+    invitation_section = response.text.split(
+        'aria-labelledby="invitation-settings-title"', 1
+    )[1].split("</section>", 1)[0]
+    assert 'class="member-invite-empty"' in invitation_section
+    assert invitation_section.index("링크를 공유하여 다른 사람을 초대하세요.") < (
+        invitation_section.index('action="/settings/invitations"')
+    )
 
     script = client.get("/static/js/app.js")
     assert "Intl.DateTimeFormat().resolvedOptions().timeZone" in script.text
     assert "deviceTimezoneForm.requestSubmit()" in script.text
+    assert 'headers: { Accept: "application/json" }' in script.text
+    assert "passwordDialog.showModal()" in script.text
 
     theme_script = client.get("/static/js/theme.js")
     assert "window.localStorage" in theme_script.text
@@ -104,3 +117,21 @@ def test_timezone_change_requires_authentication(client: TestClient) -> None:
     )
 
     assert response.status_code == 401
+
+
+def test_password_modal_receives_inline_json_errors(client: TestClient) -> None:
+    login(client)
+
+    response = client.post(
+        "/settings/password",
+        headers={"Accept": "application/json"},
+        data={
+            "current_password": "wrong password",
+            "new_password": "changed member password",
+            "new_password_confirmation": "changed member password",
+            "csrf_token": csrf_token(client),
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"error": "현재 비밀번호를 확인해 주세요."}

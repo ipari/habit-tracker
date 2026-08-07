@@ -7,13 +7,16 @@
   {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
   <section class="settings-group" aria-labelledby="admin-invitation-title">
     <h2 id="admin-invitation-title" class="section-title">내 초대 링크</h2>
-    <div class="settings-surface admin-surface">
+    <div class="settings-surface admin-surface invitation-surface">
       {% if admin_invitation %}
-        <article class="admin-item admin-invite-card">
-          <p class="invite-url" title="{{ admin_invitation.url }}">{{ admin_invitation.url }}</p>
-          <div class="admin-invite-footer">
-            <span>가입 {{ admin_invitation.joined_count }}명</span>
-            <div class="admin-invite-actions">
+        <article class="member-invite-card">
+          <div class="member-invite-link" title="{{ admin_invitation.url }}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 13.5a4.25 4.25 0 0 0 6 0l2-2a4.24 4.24 0 0 0-6-6l-1.15 1.15M13.5 10.5a4.25 4.25 0 0 0-6 0l-2 2a4.24 4.24 0 0 0 6 6l1.15-1.15"/></svg>
+            <span>{{ admin_invitation.url }}</span>
+          </div>
+          <div class="member-invite-footer">
+            <p><strong>가입 {{ admin_invitation.joined_count }}명</strong><span>{{ admin_invitation.invitation.created_at.strftime('%Y.%m.%d') }} 생성</span></p>
+            <div class="member-invite-actions">
               <button class="secondary compact" type="button" data-copy-value="{{ admin_invitation.url }}" aria-label="내 초대 링크 복사">복사</button>
               <form method="post" action="/admin/invitations/{{ admin_invitation.invitation.id }}/cancel" data-confirm="이 초대 링크를 삭제하면 신규 가입이 중단됩니다. 기존 가입 회원과 가입 이력은 유지됩니다.">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -23,8 +26,8 @@
           </div>
         </article>
       {% else %}
-        <div class="admin-empty-action">
-          <p class="muted">활성 초대 링크가 없습니다.</p>
+        <div class="member-invite-empty">
+          <p>링크를 공유하여 다른 사람을 초대하세요.</p>
           <form method="post" action="/admin/invitations">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button class="secondary compact" type="submit">생성</button>

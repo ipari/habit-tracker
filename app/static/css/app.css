@@ -476,6 +476,38 @@ input {
 .settings-surface .settings-row { border-bottom: 0; }
 .settings-surface .settings-action { border-top: 1px solid var(--threads-border); }
 .settings-surface-message { margin: 0; padding: 0 1rem .75rem; }
+.settings-navigation-row { width: 100%; margin: 0; border: 0; color: var(--threads-text); font-weight: 500; text-align: left; }
+.settings-navigation-row:hover { background: var(--threads-raised); }
+.settings-navigation-row svg { width: 1.05rem; height: 1.05rem; fill: none; stroke: var(--threads-secondary); stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.invitation-surface { overflow: visible; }
+.member-invite-card { display: grid; gap: .8rem; padding: 1rem; }
+.member-invite-empty { display: flex; min-height: 4.25rem; align-items: center; justify-content: space-between; gap: .75rem; padding: .65rem 1rem; }
+.member-invite-empty p, .member-invite-empty form { margin: 0; }
+.member-invite-empty p { color: var(--threads-secondary); font-size: .88rem; }
+.member-invite-empty button { min-height: 2.6rem; }
+.member-invite-link { display: flex; min-width: 0; align-items: center; gap: .65rem; padding: .75rem .85rem; border-radius: var(--radius-control); background: var(--threads-raised); }
+.member-invite-link svg { width: 1.15rem; height: 1.15rem; flex: 0 0 auto; fill: none; stroke: var(--threads-secondary); stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.member-invite-link span { min-width: 0; overflow: hidden; font-size: .84rem; text-overflow: ellipsis; white-space: nowrap; }
+.member-invite-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.member-invite-footer p { display: grid; min-width: 0; gap: .05rem; margin: 0; }
+.member-invite-footer strong { font-size: .88rem; }
+.member-invite-footer span { color: var(--threads-secondary); font-size: .72rem; }
+.member-invite-actions { display: flex; flex: 0 0 auto; align-items: center; gap: .4rem; }
+.member-invite-actions form { margin: 0; }
+.settings-password-dialog { width: min(calc(100% - 2rem), 28rem); max-width: none; padding: 0; border: 1px solid var(--threads-border); border-radius: var(--radius-surface); background: var(--threads-surface); color: var(--threads-text); box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 32%); }
+.settings-password-dialog::backdrop { background: rgb(0 0 0 / 55%); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.settings-password-dialog form { gap: 0; margin: 0; }
+.settings-password-dialog header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.25rem 1rem; }
+.settings-password-dialog h2 { margin: 0; font-size: 1.2rem; }
+.settings-password-dialog header p { margin: .25rem 0 0; color: var(--threads-secondary); font-size: .82rem; }
+.dialog-close { display: grid; width: 2.25rem; min-width: 2.25rem; min-height: 2.25rem; padding: 0; place-items: center; border-radius: var(--radius-full); background: var(--threads-raised); color: var(--threads-secondary); }
+.dialog-close:hover { background: var(--completion-idle-hover); }
+.dialog-close svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.8; }
+.settings-password-fields { display: grid; gap: .45rem; padding: 0 1.25rem 1.25rem; }
+.settings-password-fields label:not(:first-of-type) { margin-top: .35rem; }
+.settings-password-error { margin: .5rem 0 0; padding: .7rem .8rem; border-radius: var(--radius-control); background: var(--danger-surface, #fff0ef); color: #d70015; font-size: .84rem; }
+.settings-password-dialog footer { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; padding: 1rem 1.25rem calc(1rem + env(safe-area-inset-bottom)); border-top: 1px solid var(--threads-border); }
+.settings-password-dialog footer button { min-height: 2.85rem; }
 .settings-theme-row { display: flex; }
 .theme-options { display: flex; justify-content: flex-end; gap: .3rem; margin: 0; }
 .theme-option { position: relative; font-weight: 500; }
@@ -729,14 +761,6 @@ body { padding-bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
 .admin-item p { margin: .35rem 0; }
 .section-count { margin-left: .2rem; font-variant-numeric: tabular-nums; }
 .admin-surface .settings-surface-message { padding: 1rem; }
-.admin-empty-action { display: flex; min-height: 4.5rem; align-items: center; justify-content: space-between; gap: .75rem; padding: 1rem; }
-.admin-empty-action p, .admin-empty-action form { margin: 0; }
-.admin-invite-card { display: grid; gap: .5rem; padding-block: .75rem; }
-.admin-invite-card .invite-url { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.admin-invite-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-.admin-invite-footer > span { color: var(--threads-secondary); font-size: .82rem; }
-.admin-invite-actions { display: flex; align-items: center; gap: .45rem; }
-.admin-invite-actions form { margin: 0; }
 .member-disclosure { border-bottom: 1px solid var(--threads-border); }
 .member-disclosure:last-child { border-bottom: 0; }
 .member-disclosure > summary { display: flex; min-height: 3.75rem; align-items: center; justify-content: space-between; gap: .75rem; padding: .7rem 1rem; cursor: pointer; list-style: none; }
