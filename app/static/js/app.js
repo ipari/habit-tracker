@@ -166,6 +166,42 @@ document.querySelectorAll("[data-copy-value]").forEach((button) => {
   });
 });
 
+document.querySelectorAll("[data-reset-link-form]").forEach((form) => {
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!navigator.onLine) {
+      updateConnectionStatus();
+      offlineStatus?.focus();
+      return;
+    }
+    if (!navigator.clipboard?.writeText) {
+      await window.appAlert("이 브라우저에서는 클립보드 복사를 사용할 수 없습니다.");
+      return;
+    }
+
+    const button = form.querySelector('button[type="submit"]');
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.reset_url) {
+        throw new Error(payload.error || "재설정 링크를 만들지 못했습니다.");
+      }
+      await navigator.clipboard.writeText(payload.reset_url);
+      await window.appAlert("비밀번호 재설정 링크를 복사했습니다.");
+    } catch (error) {
+      await window.appAlert(error.message || "재설정 링크를 복사하지 못했습니다.");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+});
+
 const deviceTimezoneForm = document.querySelector("[data-device-timezone-form]");
 const deviceTimezoneInput = document.querySelector("[data-device-timezone-input]");
 

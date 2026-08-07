@@ -1,9 +1,10 @@
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
-from app.db.models import AppSettings, Habit, Invitation, User, UserSession
+from app.db.models import AppSettings, Habit, Invitation, User
 from tests.conftest import (
     TEST_PASSWORD,
     client_database,
@@ -66,6 +67,29 @@ def test_admin_page_groups_invitation_action_and_shows_member_count(
         invitation_section.index('action="/admin/invitations"')
     )
     assert 'class="admin-empty-action"' in invitation_section
+
+
+def test_admin_member_list_is_compact_and_shows_relative_last_access(
+    client: TestClient,
+) -> None:
+    with client_database(client).session_factory() as db:
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert owner is not None
+        owner.last_login_at = datetime.now(UTC) - timedelta(days=3, hours=1)
+        db.commit()
+
+    login_as(client, "admin", TEST_PASSWORD)
+    page = client.get("/admin")
+
+    assert page.status_code == 200
+    assert 'class="member-disclosure"' in page.text
+    assert "3일 전 마지막 접속" in page.text
+    assert "가입일" in page.text
+    assert "마지막 로그인" in page.text
+    assert "초대한 인원" in page.text
+    assert "data-reset-link-form" in page.text
+    assert ">비밀번호 재설정</button>" in page.text
+    assert "일회용 재설정 링크" not in page.text
 
 
 def signup_with_invitation(
@@ -184,6 +208,50 @@ def test_member_has_only_one_active_invitation_and_can_replace_deleted_link(
         assert invitations[1].code != first.code
 
 
+def test_member_invited_count_survives_invitation_replacement(
+    client: TestClient,
+) -> None:
+    first = create_owner_invitation(client)
+    signup_with_invitation(client, first.code, "first-invite@example.com")
+
+    login_as(client, "owner", TEST_PASSWORD)
+    canceled = client.post(
+        f"/settings/invitations/{first.id}/cancel",
+        data={"csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert canceled.status_code == 303
+    created = client.post(
+        "/settings/invitations",
+        data={"csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert created.status_code == 303
+    with client_database(client).session_factory() as db:
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert owner is not None
+        owner_id = owner.id
+        second = db.scalar(
+            select(Invitation).where(
+                Invitation.created_by_user_id == owner_id,
+                Invitation.is_active.is_(True),
+            )
+        )
+        assert second is not None
+        second_code = second.code
+
+    signup_with_invitation(client, second_code, "second-invite@example.com")
+    login_as(client, "admin", TEST_PASSWORD)
+    page = client.get("/admin")
+
+    assert page.status_code == 200
+    owner_details = page.text.split(f'data-user-id="{owner_id}"', 1)[1].split(
+        "</details>", 1
+    )[0]
+    assert second_code in owner_details
+    assert "<dt>초대한 인원</dt><dd>2명</dd>" in owner_details
+
+
 def test_admin_separates_own_link_and_can_force_disable_member_link(
     client: TestClient,
 ) -> None:
@@ -204,9 +272,18 @@ def test_admin_separates_own_link_and_can_force_disable_member_link(
 
     page = client.get("/admin")
     assert "내 초대 링크" in page.text
-    assert "회원 초대 링크" in page.text
-    assert "강제 비활성화" in page.text
+    assert "초대 링크 삭제" in page.text
+    assert "비밀번호 재설정" in page.text
+    assert "비활성화" not in page.text
+    assert "/status" not in page.text
     assert member_invitation.code in page.text
+    admin_invitation_section = page.text.split(
+        'aria-labelledby="admin-invitation-title"', 1
+    )[1].split("</section>", 1)[0]
+    assert 'class="admin-item admin-invite-card"' in admin_invitation_section
+    assert "가입 0명" in admin_invitation_section
+    assert "생성 ·" not in admin_invitation_section
+    assert "마지막 가입" not in admin_invitation_section
     with client_database(client).session_factory() as db:
         assert db.scalar(
             select(func.count(Invitation.id)).where(
@@ -226,6 +303,22 @@ def test_admin_separates_own_link_and_can_force_disable_member_link(
         owner = db.get(User, owner_id)
         assert stored is not None and stored.is_active is False
         assert owner is not None and owner.is_active is True
+
+
+def test_admin_member_status_endpoint_is_not_available(client: TestClient) -> None:
+    login(client)
+    with client_database(client).session_factory() as db:
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert owner is not None
+        owner_id = owner.id
+
+    login_as(client, "admin", TEST_PASSWORD)
+    response = client.post(
+        f"/admin/users/{owner_id}/status",
+        data={"is_active": "false", "csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert response.status_code == 404
 
 
 def test_admin_and_member_routes_are_role_separated(client: TestClient) -> None:
@@ -261,34 +354,6 @@ def test_habit_settings_and_push_data_are_isolated_by_member(
         ) == owner.id
 
 
-def test_admin_deactivation_revokes_existing_member_sessions(
-    client: TestClient,
-) -> None:
-    member_session = login(client)
-    with client_database(client).session_factory() as db:
-        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
-        assert owner is not None
-        owner_id = owner.id
-
-    login_as(client, "admin", TEST_PASSWORD)
-    response = client.post(
-        f"/admin/users/{owner_id}/status",
-        data={"is_active": "false", "csrf_token": csrf_token(client)},
-        follow_redirects=False,
-    )
-    assert response.status_code == 303
-
-    clear_auth(client)
-    client.cookies.set("session", member_session)
-    assert client.get("/today").status_code == 401
-    with client_database(client).session_factory() as db:
-        sessions = db.scalars(
-            select(UserSession).where(UserSession.user_id == owner_id)
-        ).all()
-        assert sessions
-        assert all(session.revoked_at is not None for session in sessions)
-
-
 def test_admin_can_create_invitation_and_one_time_password_reset(
     client: TestClient,
 ) -> None:
@@ -310,8 +375,11 @@ def test_admin_can_create_invitation_and_one_time_password_reset(
         data={"csrf_token": csrf_token(client)},
     )
     assert reset.status_code == 200
+    assert reset.headers["cache-control"] == "no-store"
     marker = "/reset/"
-    raw_token = reset.text.split(marker, 1)[1].split("<", 1)[0]
+    reset_url = reset.json()["reset_url"]
+    raw_token = reset_url.split(marker, 1)[1]
+    assert reset_url not in client.get("/admin").text
 
     clear_auth(client)
     reset_page = client.get(f"{marker}{raw_token}")

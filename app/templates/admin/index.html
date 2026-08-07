@@ -5,31 +5,22 @@
     <h1>관리자</h1>
   </header>
   {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
-  {% if reset_url %}
-    <section class="settings-group" aria-labelledby="reset-link-title">
-      <h2 id="reset-link-title" class="section-title">일회용 재설정 링크</h2>
-      <div class="settings-surface">
-        <div class="admin-item invite-link-row">
-          <p class="invite-url">{{ reset_url }}</p>
-          <button class="secondary compact" type="button" data-copy-value="{{ reset_url }}">복사</button>
-        </div>
-      </div>
-    </section>
-  {% endif %}
   <section class="settings-group" aria-labelledby="admin-invitation-title">
     <h2 id="admin-invitation-title" class="section-title">내 초대 링크</h2>
     <div class="settings-surface admin-surface">
       {% if admin_invitation %}
-        <article class="admin-item">
-          <div class="invite-link-row">
-            <p class="invite-url">{{ admin_invitation.url }}</p>
-            <button class="secondary compact" type="button" data-copy-value="{{ admin_invitation.url }}" aria-label="내 초대 링크 복사">복사</button>
+        <article class="admin-item admin-invite-card">
+          <p class="invite-url" title="{{ admin_invitation.url }}">{{ admin_invitation.url }}</p>
+          <div class="admin-invite-footer">
+            <span>가입 {{ admin_invitation.joined_count }}명</span>
+            <div class="admin-invite-actions">
+              <button class="secondary compact" type="button" data-copy-value="{{ admin_invitation.url }}" aria-label="내 초대 링크 복사">복사</button>
+              <form method="post" action="/admin/invitations/{{ admin_invitation.invitation.id }}/cancel" data-confirm="이 초대 링크를 삭제하면 신규 가입이 중단됩니다. 기존 가입 회원과 가입 이력은 유지됩니다.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="danger-secondary compact" type="submit">삭제</button>
+              </form>
+            </div>
           </div>
-          <p class="settings-detail">{{ admin_invitation.invitation.created_at.strftime('%Y-%m-%d') }} 생성 · 가입 {{ admin_invitation.joined_count }}명{% if admin_invitation.invitation.last_joined_at %} · 마지막 가입 {{ admin_invitation.invitation.last_joined_at.strftime('%Y-%m-%d') }}{% endif %}</p>
-          <form method="post" action="/admin/invitations/{{ admin_invitation.invitation.id }}/cancel" data-confirm="이 초대 링크를 삭제하면 신규 가입이 중단됩니다. 기존 가입 회원과 가입 이력은 유지됩니다.">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button class="danger-secondary compact" type="submit">삭제</button>
-          </form>
         </article>
       {% else %}
         <div class="admin-empty-action">
@@ -44,44 +35,41 @@
   </section>
   <section class="settings-group" aria-labelledby="members-title">
     <h2 id="members-title" class="section-title">회원 <span class="section-count">{{ user_rows|length }}명</span></h2>
-    <div class="settings-surface admin-surface">
+    <div class="settings-surface admin-surface member-list">
       {% for row in user_rows %}
-        <article class="admin-item">
-          <strong>{{ row.user.email }}</strong>
-          <p class="settings-detail">{% if row.user.is_active %}활성{% else %}비활성{% endif %} · 직접 초대 {{ row.invited_count }}명</p>
-          <p class="settings-detail">가입 {{ row.user.created_at.strftime('%Y-%m-%d') }}{% if row.user.last_login_at %} · 마지막 로그인 {{ row.user.last_login_at.strftime('%Y-%m-%d') }}{% endif %}{% if row.joined_invitation %} · 초대 {{ row.joined_invitation.code }}{% else %} · 초대 정보 없음{% endif %}</p>
-          <div class="member-invitation">
-            <strong class="settings-detail">회원 초대 링크</strong>
-            {% if row.active_invitation %}
-              <div class="invite-link-row">
-                <p class="invite-url">{{ row.active_invitation.url }}</p>
-                <button class="secondary compact" type="button" data-copy-value="{{ row.active_invitation.url }}" aria-label="{{ row.user.email }} 초대 링크 복사">복사</button>
-              </div>
-              <p class="settings-detail">{{ row.active_invitation.invitation.created_at.strftime('%Y-%m-%d') }} 생성 · 가입 {{ row.active_invitation.joined_count }}명{% if row.active_invitation.invitation.last_joined_at %} · 마지막 가입 {{ row.active_invitation.invitation.last_joined_at.strftime('%Y-%m-%d') }}{% endif %}</p>
-              <form method="post" action="/admin/invitations/{{ row.active_invitation.invitation.id }}/cancel" data-confirm="이 회원의 초대 링크를 강제로 비활성화하면 신규 가입이 중단됩니다. 기존 가입 회원과 가입 이력은 유지됩니다.">
+        <details class="member-disclosure" data-user-id="{{ row.user.id }}">
+          <summary>
+            <span class="member-summary-text">
+              <strong>{{ row.user.email }}</strong>
+              <span>{{ row.last_access_label }}</span>
+            </span>
+            <svg class="member-disclosure-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 9 7 7 7-7"/></svg>
+          </summary>
+          <div class="member-details">
+            <dl class="member-facts">
+              <div><dt>가입일</dt><dd>{{ row.user.created_at.strftime('%Y-%m-%d') }}</dd></div>
+              <div><dt>마지막 로그인</dt><dd>{% if row.user.last_login_at %}{{ row.user.last_login_at.strftime('%Y-%m-%d') }}{% else %}기록 없음{% endif %}</dd></div>
+              <div><dt>초대 링크</dt><dd>{% if row.active_invitation %}{{ row.active_invitation.url }}{% else %}없음{% endif %}</dd></div>
+              <div><dt>초대한 인원</dt><dd>{{ row.invited_count }}명</dd></div>
+            </dl>
+            <div class="member-actions">
+              {% if row.active_invitation %}
+                <form class="member-invite-action" method="post" action="/admin/invitations/{{ row.active_invitation.invitation.id }}/cancel" data-confirm="이 회원의 초대 링크를 삭제하면 신규 가입이 중단됩니다. 기존 가입 회원과 가입 이력은 유지됩니다.">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button class="secondary compact" type="submit">초대 링크 삭제</button>
+                </form>
+              {% endif %}
+              <form method="post" action="/admin/users/{{ row.user.id }}/reset" data-reset-link-form>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button class="danger-secondary compact" type="submit">강제 비활성화</button>
+                <button class="secondary compact" type="submit">비밀번호 재설정</button>
               </form>
-            {% else %}<p class="settings-detail muted">활성 초대 링크 없음</p>{% endif %}
-          </div>
-          <div class="settings-row-actions">
-            <form method="post" action="/admin/users/{{ row.user.id }}/status">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <input type="hidden" name="is_active" value="{{ 'false' if row.user.is_active else 'true' }}">
-              <button class="secondary compact" type="submit">{{ '비활성화' if row.user.is_active else '활성화' }}</button>
-            </form>
-            {% if row.user.is_active %}
-              <form method="post" action="/admin/users/{{ row.user.id }}/reset">
+              <form method="post" action="/admin/users/{{ row.user.id }}/delete" data-confirm="회원과 습관, 기록, 알림, 기기 연결을 영구 삭제합니다. 계속할까요?">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button class="secondary compact" type="submit">재설정 링크</button>
+                <button class="danger-secondary compact" type="submit">영구 삭제</button>
               </form>
-            {% endif %}
-            <form method="post" action="/admin/users/{{ row.user.id }}/delete" data-confirm="회원과 습관, 기록, 알림, 기기 연결을 영구 삭제합니다. 계속할까요?">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <button class="danger-secondary compact" type="submit">영구 삭제</button>
-            </form>
+            </div>
           </div>
-        </article>
+        </details>
       {% else %}<p class="settings-surface-message muted">가입한 회원이 없습니다.</p>{% endfor %}
     </div>
   </section>

@@ -1,7 +1,8 @@
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -16,6 +17,18 @@ from app.db.models import Invitation, User
 from app.web import render_template, request_has_valid_csrf
 
 router = APIRouter(prefix="/admin")
+
+
+def last_access_label(last_login_at: datetime | None, *, now: datetime) -> str:
+    if last_login_at is None:
+        return "접속 기록 없음"
+    normalized = (
+        last_login_at.replace(tzinfo=UTC)
+        if last_login_at.tzinfo is None
+        else last_login_at.astimezone(UTC)
+    )
+    days = max(0, int((now - normalized).total_seconds() // 86_400))
+    return "오늘 마지막 접속" if days == 0 else f"{days}일 전 마지막 접속"
 
 
 def invite_url(request: Request, invitation: Invitation) -> str:
@@ -38,9 +51,9 @@ def admin_context(
     request: Request,
     db: DbSession,
     *,
-    reset_url: str | None = None,
     error: str | None = None,
 ) -> dict[str, object]:
+    now = datetime.now(UTC)
     users = db.scalars(select(User).order_by(User.created_at.desc(), User.id.desc())).all()
     invitations = db.scalars(
         select(Invitation).order_by(Invitation.created_at.desc(), Invitation.id.desc())
@@ -53,6 +66,16 @@ def admin_context(
             .group_by(User.invitation_id)
         ).all()
         if invitation_id is not None
+    }
+    invited_counts_by_user: dict[int, int] = {
+        creator_user_id: count
+        for creator_user_id, count in db.execute(
+            select(Invitation.created_by_user_id, func.count(User.id))
+            .join(User, User.invitation_id == Invitation.id)
+            .where(Invitation.created_by_user_id.is_not(None))
+            .group_by(Invitation.created_by_user_id)
+        ).all()
+        if creator_user_id is not None
     }
     active_admin_invitation = next(
         (
@@ -69,14 +92,13 @@ def admin_context(
     }
     user_rows: list[dict[str, object]] = []
     for user in users:
-        created = [item for item in invitations if item.created_by_user_id == user.id]
-        invited_count = sum(joined_counts.get(item.id, 0) for item in created)
         active_invitation = active_member_invitations.get(user.id)
         user_rows.append(
             {
                 "user": user,
                 "joined_invitation": user.invitation,
-                "invited_count": invited_count,
+                "invited_count": invited_counts_by_user.get(user.id, 0),
+                "last_access_label": last_access_label(user.last_login_at, now=now),
                 "active_invitation": (
                     invitation_row(request, active_invitation, joined_counts)
                     if active_invitation is not None
@@ -91,7 +113,6 @@ def admin_context(
             if active_admin_invitation is not None
             else None
         ),
-        "reset_url": reset_url,
         "error": error,
     }
 
@@ -148,33 +169,6 @@ def cancel_admin_invitation(
     return RedirectResponse("/admin", status_code=status.HTTP_303_SEE_OTHER)
 
 
-@router.post("/users/{user_id}/status")
-def update_user_status(
-    user_id: int,
-    request: Request,
-    db: DbSession,
-    _identity: AdminIdentity,
-    is_active: Annotated[bool, Form()],
-    csrf_token: Annotated[str, Form()],
-) -> Response:
-    if not request_has_valid_csrf(request, csrf_token):
-        return HTMLResponse("요청이 만료되었습니다.", status_code=403)
-    user = db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.is_active = is_active
-    if not is_active:
-        revoke_user_sessions(db, user.id)
-        for invitation in user.created_invitations:
-            cancel_invitation(invitation)
-    try:
-        db.commit()
-    except SQLAlchemyError:
-        db.rollback()
-        return HTMLResponse("회원 상태를 변경하지 못했습니다.", status_code=503)
-    return RedirectResponse("/admin", status_code=status.HTTP_303_SEE_OTHER)
-
-
 @router.post("/users/{user_id}/reset")
 def create_user_reset(
     user_id: int,
@@ -184,19 +178,22 @@ def create_user_reset(
     csrf_token: Annotated[str, Form()],
 ) -> Response:
     if not request_has_valid_csrf(request, csrf_token):
-        return HTMLResponse("요청이 만료되었습니다.", status_code=403)
+        return JSONResponse({"error": "요청이 만료되었습니다."}, status_code=403)
     user = db.get(User, user_id)
     if user is None or not user.is_active:
-        raise HTTPException(status_code=404, detail="User not found")
+        return JSONResponse({"error": "회원을 찾을 수 없습니다."}, status_code=404)
     try:
         _reset, raw_token = create_password_reset(db, user.id)
         db.commit()
     except SQLAlchemyError:
         db.rollback()
-        return HTMLResponse("재설정 링크를 만들지 못했습니다.", status_code=503)
+        return JSONResponse(
+            {"error": "재설정 링크를 만들지 못했습니다."}, status_code=503
+        )
     reset_url = str(request.url_for("reset_page", raw_token=raw_token))
-    return render_template(
-        request, "admin/index.html", admin_context(request, db, reset_url=reset_url)
+    return JSONResponse(
+        {"reset_url": reset_url},
+        headers={"Cache-Control": "no-store"},
     )
 
 
