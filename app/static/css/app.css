@@ -148,9 +148,10 @@ legend { margin-bottom: .65rem; font-weight: 700; }
 .management-card.archived { opacity: .7; }
 .status-label { margin: .15rem 0 0; }
 .calendar-card { padding: 1rem; border: 1px solid #d7ded8; border-radius: 1.2rem; background: #fff; }
-.calendar-nav { display: grid; grid-template-columns: 3rem 1fr 3rem; align-items: center; gap: .5rem; margin-bottom: 1rem; text-align: center; }
+.calendar-nav { display: grid; grid-template-columns: 2.75rem 1fr 2.75rem; align-items: center; gap: .5rem; margin-bottom: 1rem; text-align: center; }
 .calendar-nav h2 { margin: 0; font-size: 1.25rem; }
-.month-button { display: grid; min-height: 2.75rem; place-items: center; border-radius: .7rem; background: #e4ebe5; color: #23452f; font-size: 1.3rem; font-weight: 700; text-decoration: none; }
+.month-button { display: grid; width: 2.75rem; height: 2.75rem; min-height: 2.75rem; padding: 0; place-items: center; border-radius: 50%; background: #e4ebe5; color: #23452f; text-decoration: none; }
+.month-button svg { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .weekday-header { margin-bottom: .3rem; color: #58645c; font-size: .8rem; font-weight: 700; text-align: center; }
 .calendar-day { display: flex; min-height: 3.55rem; flex-direction: column; align-items: center; justify-content: center; gap: .1rem; margin: .12rem; border: 2px solid transparent; border-radius: .7rem; color: #17211b; text-decoration: none; }

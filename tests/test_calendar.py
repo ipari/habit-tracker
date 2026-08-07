@@ -97,6 +97,11 @@ def test_calendar_shows_missed_dot_for_unfinished_today(client: TestClient) -> N
 
     assert 'class="calendar-day state-planned' in page.text
     assert 'class="calendar-status-dot missed"' in page.text
+    assert 'aria-label="이전 달"' in page.text
+    assert 'aria-label="다음 달"' in page.text
+    assert '>←</a>' not in page.text
+    assert '>→</a>' not in page.text
+    assert page.text.count('class="month-button"') == 2
 
 
 def test_calendar_records_an_unscheduled_habit_from_the_additional_section(
