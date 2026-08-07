@@ -63,27 +63,27 @@
   <section class="settings-group" aria-labelledby="invitation-settings-title">
     <div class="section-heading-row">
       <h2 id="invitation-settings-title" class="section-title">초대 링크</h2>
-      <form method="post" action="/settings/invitations">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="secondary compact" type="submit">생성</button>
-      </form>
+      {% if not invitation %}
+        <form method="post" action="/settings/invitations">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="secondary compact" type="submit">생성</button>
+        </form>
+      {% endif %}
     </div>
     <div class="settings-surface">
-      {% for row in invitations %}
+      {% if invitation %}
         <article class="admin-item">
           <div class="invite-link-row">
-            <span class="invite-url">{{ row.url }}</span>
-            <button class="secondary compact" type="button" data-copy-value="{{ row.url }}" aria-label="초대 링크 복사">복사</button>
+            <span class="invite-url">{{ invitation.url }}</span>
+            <button class="secondary compact" type="button" data-copy-value="{{ invitation.url }}" aria-label="초대 링크 복사">복사</button>
           </div>
-          <p class="settings-detail">{{ row.invitation.created_at.strftime('%Y-%m-%d') }} 생성 · 가입 {{ row.joined_count }}명{% if row.invitation.last_joined_at %} · 마지막 가입 {{ row.invitation.last_joined_at.strftime('%Y-%m-%d') }}{% endif %}</p>
-          {% if row.invitation.is_active %}
-            <form method="post" action="/settings/invitations/{{ row.invitation.id }}/cancel" data-confirm="이 초대 링크를 취소하면 다시 활성화할 수 없습니다. 기존 가입 회원은 유지됩니다.">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <button class="danger-secondary compact" type="submit">초대 취소</button>
-            </form>
-          {% else %}<span class="settings-detail">취소됨</span>{% endif %}
+          <p class="settings-detail">{{ invitation.invitation.created_at.strftime('%Y-%m-%d') }} 생성 · 가입 {{ invitation.joined_count }}명{% if invitation.invitation.last_joined_at %} · 마지막 가입 {{ invitation.invitation.last_joined_at.strftime('%Y-%m-%d') }}{% endif %}</p>
+          <form method="post" action="/settings/invitations/{{ invitation.invitation.id }}/cancel" data-confirm="이 초대 링크를 삭제하면 신규 가입이 중단됩니다. 기존 가입 회원과 가입 이력은 유지됩니다.">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="danger-secondary compact" type="submit">삭제</button>
+          </form>
         </article>
-      {% else %}<p class="settings-surface-message muted">생성한 초대 링크가 없습니다.</p>{% endfor %}
+      {% else %}<p class="settings-surface-message muted">활성 초대 링크가 없습니다.</p>{% endif %}
     </div>
   </section>
 

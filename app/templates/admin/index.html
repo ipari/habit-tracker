@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}회원 관리 · Habit Tracker{% endblock %}
+{% block title %}관리자 · Habit Tracker{% endblock %}
 {% block content %}
   <header class="app-header">
-    <h1>회원 관리</h1>
+    <h1>관리자</h1>
   </header>
   {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
   {% if reset_url %}
@@ -16,40 +16,54 @@
       </div>
     </section>
   {% endif %}
-  <section class="settings-group" aria-labelledby="admin-invitations-title">
-    <div class="section-heading-row">
-      <h2 id="admin-invitations-title" class="section-title">초대 링크</h2>
-      <form method="post" action="/admin/invitations">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="secondary compact" type="submit">생성</button>
-      </form>
-    </div>
-    <div class="settings-surface">
-      {% for row in invitation_rows %}
+  <section class="settings-group" aria-labelledby="admin-invitation-title">
+    <h2 id="admin-invitation-title" class="section-title">내 초대 링크</h2>
+    <div class="settings-surface admin-surface">
+      {% if admin_invitation %}
         <article class="admin-item">
           <div class="invite-link-row">
-            <p class="invite-url">{{ row.url }}</p>
-            <button class="secondary compact" type="button" data-copy-value="{{ row.url }}" aria-label="초대 링크 복사">복사</button>
+            <p class="invite-url">{{ admin_invitation.url }}</p>
+            <button class="secondary compact" type="button" data-copy-value="{{ admin_invitation.url }}" aria-label="내 초대 링크 복사">복사</button>
           </div>
-          <p class="settings-detail">{{ row.invitation.created_at.strftime('%Y-%m-%d') }} · {% if row.invitation.created_by_admin %}admin 생성{% elif row.invitation.creator %}{{ row.invitation.creator.email }} 생성{% else %}삭제 회원 생성{% endif %} · 가입 {{ row.joined_count }}명 · {% if row.invitation.last_joined_at %}마지막 가입 {{ row.invitation.last_joined_at.strftime('%Y-%m-%d') }} · {% endif %}{% if row.invitation.is_active %}활성{% else %}취소됨{% endif %}</p>
-          {% if row.invitation.is_active %}
-            <form method="post" action="/admin/invitations/{{ row.invitation.id }}/cancel" data-confirm="이 초대 링크를 취소하면 다시 활성화할 수 없습니다. 기존 가입 회원은 유지됩니다.">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <button class="danger-secondary compact" type="submit">초대 취소</button>
-            </form>
-          {% endif %}
+          <p class="settings-detail">{{ admin_invitation.invitation.created_at.strftime('%Y-%m-%d') }} 생성 · 가입 {{ admin_invitation.joined_count }}명{% if admin_invitation.invitation.last_joined_at %} · 마지막 가입 {{ admin_invitation.invitation.last_joined_at.strftime('%Y-%m-%d') }}{% endif %}</p>
+          <form method="post" action="/admin/invitations/{{ admin_invitation.invitation.id }}/cancel" data-confirm="이 초대 링크를 삭제하면 신규 가입이 중단됩니다. 기존 가입 회원과 가입 이력은 유지됩니다.">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="danger-secondary compact" type="submit">삭제</button>
+          </form>
         </article>
-      {% else %}<p class="settings-surface-message muted">생성한 초대 링크가 없습니다.</p>{% endfor %}
+      {% else %}
+        <div class="admin-empty-action">
+          <p class="muted">활성 초대 링크가 없습니다.</p>
+          <form method="post" action="/admin/invitations">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="secondary compact" type="submit">생성</button>
+          </form>
+        </div>
+      {% endif %}
     </div>
   </section>
   <section class="settings-group" aria-labelledby="members-title">
-    <h2 id="members-title" class="section-title">회원</h2>
-    <div class="settings-surface">
+    <h2 id="members-title" class="section-title">회원 <span class="section-count">{{ user_rows|length }}명</span></h2>
+    <div class="settings-surface admin-surface">
       {% for row in user_rows %}
         <article class="admin-item">
           <strong>{{ row.user.email }}</strong>
-          <p class="settings-detail">{% if row.user.is_active %}활성{% else %}비활성{% endif %} · 직접 초대 {{ row.invited_count }}명 · 활성 링크 {{ row.active_invitation_count }}개</p>
+          <p class="settings-detail">{% if row.user.is_active %}활성{% else %}비활성{% endif %} · 직접 초대 {{ row.invited_count }}명</p>
           <p class="settings-detail">가입 {{ row.user.created_at.strftime('%Y-%m-%d') }}{% if row.user.last_login_at %} · 마지막 로그인 {{ row.user.last_login_at.strftime('%Y-%m-%d') }}{% endif %}{% if row.joined_invitation %} · 초대 {{ row.joined_invitation.code }}{% else %} · 초대 정보 없음{% endif %}</p>
+          <div class="member-invitation">
+            <strong class="settings-detail">회원 초대 링크</strong>
+            {% if row.active_invitation %}
+              <div class="invite-link-row">
+                <p class="invite-url">{{ row.active_invitation.url }}</p>
+                <button class="secondary compact" type="button" data-copy-value="{{ row.active_invitation.url }}" aria-label="{{ row.user.email }} 초대 링크 복사">복사</button>
+              </div>
+              <p class="settings-detail">{{ row.active_invitation.invitation.created_at.strftime('%Y-%m-%d') }} 생성 · 가입 {{ row.active_invitation.joined_count }}명{% if row.active_invitation.invitation.last_joined_at %} · 마지막 가입 {{ row.active_invitation.invitation.last_joined_at.strftime('%Y-%m-%d') }}{% endif %}</p>
+              <form method="post" action="/admin/invitations/{{ row.active_invitation.invitation.id }}/cancel" data-confirm="이 회원의 초대 링크를 강제로 비활성화하면 신규 가입이 중단됩니다. 기존 가입 회원과 가입 이력은 유지됩니다.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="danger-secondary compact" type="submit">강제 비활성화</button>
+              </form>
+            {% else %}<p class="settings-detail muted">활성 초대 링크 없음</p>{% endif %}
+          </div>
           <div class="settings-row-actions">
             <form method="post" action="/admin/users/{{ row.user.id }}/status">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

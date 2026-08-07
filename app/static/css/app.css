@@ -727,6 +727,12 @@ body { padding-bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
 .admin-item { padding: 1rem; border-bottom: 1px solid var(--threads-border); }
 .admin-item:last-child { border-bottom: 0; }
 .admin-item p { margin: .35rem 0; }
+.section-count { margin-left: .2rem; font-variant-numeric: tabular-nums; }
+.admin-surface .settings-surface-message { padding: 1rem; }
+.admin-empty-action { display: flex; min-height: 4.5rem; align-items: center; justify-content: space-between; gap: .75rem; padding: 1rem; }
+.admin-empty-action p, .admin-empty-action form { margin: 0; }
+.member-invitation { margin: .85rem 0; padding: .8rem; border: 1px solid var(--threads-border); border-radius: var(--radius-control); background: var(--threads-raised); }
+.member-invitation > .settings-detail:first-child { display: block; margin-bottom: .4rem; }
 .invite-url { overflow-wrap: anywhere; font-size: .82rem; }
 .detail-list { overflow: hidden; margin-top: 1.5rem; border: 1px solid var(--threads-border); border-radius: var(--radius-section); }
 .detail-row { display: flex; min-height: 3.6rem; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem 1rem; border-bottom: 1px solid var(--threads-border); }

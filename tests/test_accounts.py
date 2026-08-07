@@ -47,6 +47,27 @@ def create_owner_invitation(client: TestClient) -> Invitation:
         return invitation
 
 
+def test_admin_page_groups_invitation_action_and_shows_member_count(
+    client: TestClient,
+) -> None:
+    login_as(client, "admin", TEST_PASSWORD)
+
+    page = client.get("/admin")
+
+    assert page.status_code == 200
+    assert "<title>관리자 · Habit Tracker</title>" in page.text
+    assert "<h1>관리자</h1>" in page.text
+    assert "회원 관리" not in page.text
+    assert 'class="section-count">1명</span>' in page.text
+    invitation_section = page.text.split(
+        'aria-labelledby="admin-invitation-title"', 1
+    )[1].split("</section>", 1)[0]
+    assert invitation_section.index('class="settings-surface admin-surface"') < (
+        invitation_section.index('action="/admin/invitations"')
+    )
+    assert 'class="admin-empty-action"' in invitation_section
+
+
 def signup_with_invitation(
     client: TestClient, code: str, email: str, password: str = "member password"
 ) -> None:
@@ -93,7 +114,7 @@ def test_canceled_invitation_blocks_new_signup_but_keeps_history(
 ) -> None:
     invitation = create_owner_invitation(client)
     settings_page = client.get("/settings")
-    assert "이 초대 링크를 취소하면 다시 활성화할 수 없습니다." in settings_page.text
+    assert "이 초대 링크를 삭제하면 신규 가입이 중단됩니다." in settings_page.text
     signup_with_invitation(client, invitation.code, "joined@example.com")
     login_as(client, "owner", TEST_PASSWORD)
     response = client.post(
@@ -111,6 +132,100 @@ def test_canceled_invitation_blocks_new_signup_but_keeps_history(
         )
         assert joined is not None
         assert joined.invitation_id == invitation.id
+
+
+def test_member_has_only_one_active_invitation_and_can_replace_deleted_link(
+    client: TestClient,
+) -> None:
+    first = create_owner_invitation(client)
+    second_create = client.post(
+        "/settings/invitations",
+        data={"csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert second_create.status_code == 303
+    settings_page = client.get("/settings")
+    assert "초대 링크</h2>" in settings_page.text
+    assert ">생성</button>" not in settings_page.text
+
+    with client_database(client).session_factory() as db:
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert owner is not None
+        assert db.scalar(
+            select(func.count(Invitation.id)).where(
+                Invitation.created_by_user_id == owner.id,
+                Invitation.is_active.is_(True),
+            )
+        ) == 1
+
+    canceled = client.post(
+        f"/settings/invitations/{first.id}/cancel",
+        data={"csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert canceled.status_code == 303
+    replaced = client.post(
+        "/settings/invitations",
+        data={"csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert replaced.status_code == 303
+    with client_database(client).session_factory() as db:
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert owner is not None
+        invitations = db.scalars(
+            select(Invitation)
+            .where(Invitation.created_by_user_id == owner.id)
+            .order_by(Invitation.id)
+        ).all()
+        assert len(invitations) == 2
+        assert invitations[0].is_active is False
+        assert invitations[1].is_active is True
+        assert invitations[1].code != first.code
+
+
+def test_admin_separates_own_link_and_can_force_disable_member_link(
+    client: TestClient,
+) -> None:
+    member_invitation = create_owner_invitation(client)
+    with client_database(client).session_factory() as db:
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert owner is not None
+        owner_id = owner.id
+
+    login_as(client, "admin", TEST_PASSWORD)
+    for _attempt in range(2):
+        created = client.post(
+            "/admin/invitations",
+            data={"csrf_token": csrf_token(client)},
+            follow_redirects=False,
+        )
+        assert created.status_code == 303
+
+    page = client.get("/admin")
+    assert "내 초대 링크" in page.text
+    assert "회원 초대 링크" in page.text
+    assert "강제 비활성화" in page.text
+    assert member_invitation.code in page.text
+    with client_database(client).session_factory() as db:
+        assert db.scalar(
+            select(func.count(Invitation.id)).where(
+                Invitation.created_by_admin.is_(True),
+                Invitation.is_active.is_(True),
+            )
+        ) == 1
+
+    disabled = client.post(
+        f"/admin/invitations/{member_invitation.id}/cancel",
+        data={"csrf_token": csrf_token(client)},
+        follow_redirects=False,
+    )
+    assert disabled.status_code == 303
+    with client_database(client).session_factory() as db:
+        stored = db.get(Invitation, member_invitation.id)
+        owner = db.get(User, owner_id)
+        assert stored is not None and stored.is_active is False
+        assert owner is not None and owner.is_active is True
 
 
 def test_admin_and_member_routes_are_role_separated(client: TestClient) -> None:

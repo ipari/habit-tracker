@@ -67,6 +67,18 @@ class Invitation(Base):
             "created_by_admin = 1 OR created_by_user_id IS NOT NULL OR is_active = 0",
             name="ck_invitations_creator",
         ),
+        Index(
+            "uq_invitations_active_creator_user",
+            "created_by_user_id",
+            unique=True,
+            sqlite_where=(is_active.is_(True) & created_by_user_id.is_not(None)),
+        ),
+        Index(
+            "uq_invitations_active_admin",
+            "created_by_admin",
+            unique=True,
+            sqlite_where=(is_active.is_(True) & created_by_admin.is_(True)),
+        ),
     )
 
 

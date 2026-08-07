@@ -32,6 +32,19 @@ def create_invitation(
 ) -> Invitation:
     if (creator_user_id is None) == (not created_by_admin):
         raise ValueError("Invitation creator is required")
+    creator_filter = (
+        Invitation.created_by_admin.is_(True)
+        if created_by_admin
+        else Invitation.created_by_user_id == creator_user_id
+    )
+    existing = db.scalar(
+        select(Invitation)
+        .where(creator_filter, Invitation.is_active.is_(True))
+        .order_by(Invitation.created_at.desc(), Invitation.id.desc())
+        .limit(1)
+    )
+    if existing is not None:
+        return existing
     for _attempt in range(5):
         code = secrets.token_urlsafe(9)
         if len(code) == 12 and db.scalar(

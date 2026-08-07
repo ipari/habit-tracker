@@ -4,9 +4,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LEGACY_REVISION = "20260801_0005"
-CURRENT_REVISION = "20260807_0006"
+MULTI_USER_REVISION = "20260807_0006"
+CURRENT_REVISION = "20260807_0007"
 
 
 def run_alembic(database_path: Path, revision: str) -> None:
@@ -141,3 +144,63 @@ def test_multi_user_upgrade_preserves_all_legacy_relational_data(
             row[2] == "users" and row[3] == "user_id"
             for row in db.execute("PRAGMA foreign_key_list(push_subscriptions)")
         )
+
+
+def test_single_active_invitation_upgrade_keeps_only_newest_active_link(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "multiple-invitations.db"
+    run_alembic(database_path, MULTI_USER_REVISION)
+    with sqlite3.connect(database_path) as db:
+        db.execute("PRAGMA foreign_keys=ON")
+        db.execute(
+            """
+            INSERT INTO users
+                (id, email, normalized_email, password_hash, is_active,
+                 invitation_id, last_login_at, created_at, updated_at)
+            VALUES (1, 'owner@example.com', 'owner@example.com', 'hash', 1,
+                    NULL, NULL, '2026-08-01 00:00:00', '2026-08-01 00:00:00')
+            """
+        )
+        invitations = (
+            (1, "member-old-1", 1, 0, "2026-08-01 00:00:00"),
+            (2, "member-new-2", 1, 0, "2026-08-02 00:00:00"),
+            (3, "admin-old-01", None, 1, "2026-08-01 00:00:00"),
+            (4, "admin-new-02", None, 1, "2026-08-02 00:00:00"),
+        )
+        db.executemany(
+            """
+            INSERT INTO invitations
+                (id, code, created_by_user_id, created_by_admin, is_active,
+                 canceled_at, last_joined_at, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 1, NULL, NULL, ?, ?)
+            """,
+            [(*invitation, invitation[-1]) for invitation in invitations],
+        )
+        db.commit()
+
+    run_alembic(database_path, "head")
+
+    with sqlite3.connect(database_path) as db:
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == (
+            CURRENT_REVISION
+        )
+        assert db.execute(
+            "SELECT id FROM invitations WHERE created_by_user_id = 1 AND is_active = 1"
+        ).fetchall() == [(2,)]
+        assert db.execute(
+            "SELECT id FROM invitations WHERE created_by_admin = 1 AND is_active = 1"
+        ).fetchall() == [(4,)]
+        assert db.execute(
+            "SELECT count(*) FROM invitations WHERE is_active = 0 AND canceled_at IS NOT NULL"
+        ).fetchone()[0] == 2
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute(
+                """
+                INSERT INTO invitations
+                    (code, created_by_user_id, created_by_admin, is_active,
+                     canceled_at, last_joined_at, created_at, updated_at)
+                VALUES ('member-next3', 1, 0, 1, NULL, NULL,
+                        '2026-08-03 00:00:00', '2026-08-03 00:00:00')
+                """
+            )

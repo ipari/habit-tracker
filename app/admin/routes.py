@@ -22,6 +22,18 @@ def invite_url(request: Request, invitation: Invitation) -> str:
     return str(request.url_for("signup_page", code=invitation.code))
 
 
+def invitation_row(
+    request: Request,
+    invitation: Invitation,
+    joined_counts: dict[int, int],
+) -> dict[str, object]:
+    return {
+        "invitation": invitation,
+        "url": invite_url(request, invitation),
+        "joined_count": joined_counts.get(invitation.id, 0),
+    }
+
+
 def admin_context(
     request: Request,
     db: DbSession,
@@ -42,29 +54,43 @@ def admin_context(
         ).all()
         if invitation_id is not None
     }
+    active_admin_invitation = next(
+        (
+            invitation
+            for invitation in invitations
+            if invitation.created_by_admin and invitation.is_active
+        ),
+        None,
+    )
+    active_member_invitations = {
+        invitation.created_by_user_id: invitation
+        for invitation in invitations
+        if invitation.created_by_user_id is not None and invitation.is_active
+    }
     user_rows: list[dict[str, object]] = []
     for user in users:
         created = [item for item in invitations if item.created_by_user_id == user.id]
         invited_count = sum(joined_counts.get(item.id, 0) for item in created)
+        active_invitation = active_member_invitations.get(user.id)
         user_rows.append(
             {
                 "user": user,
                 "joined_invitation": user.invitation,
                 "invited_count": invited_count,
-                "active_invitation_count": sum(item.is_active for item in created),
+                "active_invitation": (
+                    invitation_row(request, active_invitation, joined_counts)
+                    if active_invitation is not None
+                    else None
+                ),
             }
         )
-    invitation_rows = [
-        {
-            "invitation": invitation,
-            "url": invite_url(request, invitation),
-            "joined_count": joined_counts.get(invitation.id, 0),
-        }
-        for invitation in invitations
-    ]
     return {
         "user_rows": user_rows,
-        "invitation_rows": invitation_rows,
+        "admin_invitation": (
+            invitation_row(request, active_admin_invitation, joined_counts)
+            if active_admin_invitation is not None
+            else None
+        ),
         "reset_url": reset_url,
         "error": error,
     }

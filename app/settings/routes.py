@@ -31,14 +31,14 @@ def settings_context(
     *,
     error: str | None = None,
     saved: bool = False,
-    invitations: list[dict[str, object]] | None = None,
+    invitation: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return {
         "user": identity,
         "timezone": timezone,
         "timezone_error": error,
         "timezone_saved": saved,
-        "invitations": invitations or [],
+        "invitation": invitation,
     }
 
 
@@ -51,12 +51,16 @@ def settings_page(
         select(AppSettings).where(AppSettings.user_id == identity.user_id)
     )
     timezone = app_settings.timezone if app_settings else "UTC"
-    invitations = db.scalars(
+    invitation = db.scalar(
         select(Invitation)
-        .where(Invitation.created_by_user_id == identity.user_id)
+        .where(
+            Invitation.created_by_user_id == identity.user_id,
+            Invitation.is_active.is_(True),
+        )
         .order_by(Invitation.created_at.desc(), Invitation.id.desc())
-    ).all()
-    invitation_rows = [
+        .limit(1)
+    )
+    invitation_row = (
         {
             "invitation": invitation,
             "url": str(request.url_for("signup_page", code=invitation.code)),
@@ -65,8 +69,9 @@ def settings_page(
             )
             or 0,
         }
-        for invitation in invitations
-    ]
+        if invitation is not None
+        else None
+    )
     return render_template(
         request,
         "settings.html",
@@ -74,7 +79,7 @@ def settings_page(
             identity,
             timezone,
             saved=request.query_params.get("saved") == "timezone",
-            invitations=invitation_rows,
+            invitation=invitation_row,
         ),
     )
 
