@@ -16,7 +16,7 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     assert 'rel="manifest" href="http://testserver/static/manifest.webmanifest"' in response.text
     assert 'src="http://testserver/static/vendor/htmx-2.0.10.min.js"' in response.text
     assert 'src="http://testserver/static/js/theme.js?v=1"' in response.text
-    assert 'href="http://testserver/static/css/app.css?v=54"' in response.text
+    assert 'href="http://testserver/static/css/app.css?v=56"' in response.text
     assert 'href="http://testserver/static/icons/favicon.svg?v=3"' in response.text
     assert 'href="http://testserver/static/icons/app-icon-180.png?v=5"' in response.text
 
@@ -26,7 +26,7 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     assert "left: 50%" in stylesheet.text
     assert "width: min(calc(100% - 3.5rem), 35rem)" in stylesheet.text
     assert "width: 2.3rem" in stylesheet.text
-    assert 'src="http://testserver/static/js/app.js?v=9"' in response.text
+    assert 'src="http://testserver/static/js/app.js?v=10"' in response.text
     assert "cdn.jsdelivr.net" not in response.text
     assert 'id="offline-status"' in response.text
     assert 'id="app-alert-dialog"' in response.text
@@ -41,6 +41,11 @@ def test_pages_link_installable_manifest_and_local_htmx(client: TestClient) -> N
     assert 'document.querySelectorAll("[data-reset-link-form]")' in script.text
     assert "navigator.clipboard.writeText(payload.reset_url)" in script.text
     assert 'window.appAlert("비밀번호 재설정 링크를 복사했습니다.")' in script.text
+    assert 'document.querySelector("[data-signup-email]")' in script.text
+    assert (
+        'signupEmailInput.setCustomValidity("name@example.com 형식으로 입력해 주세요.")'
+        in script.text
+    )
 
     assert ".app-alert-dialog::backdrop" in stylesheet.text
     assert "background: rgb(0 0 0 / 55%)" in stylesheet.text
@@ -110,8 +115,8 @@ def test_installed_app_offers_notification_permission_after_user_action(
     assert '"/static/js/share.js?v=2"' in worker.text
     assert '"/static/js/theme.js?v=1"' in worker.text
     assert '"/static/js/password-visibility.js?v=3"' in worker.text
-    assert '"/static/css/app.css?v=54"' in worker.text
-    assert '"/static/js/app.js?v=9"' in worker.text
+    assert '"/static/css/app.css?v=56"' in worker.text
+    assert '"/static/js/app.js?v=10"' in worker.text
     assert '"/static/icons/favicon.svg?v=3"' in worker.text
     assert '"/static/icons/app-icon-512.png?v=5"' in worker.text
     assert '"/static/icons/app-icon-maskable-512.png?v=5"' in worker.text

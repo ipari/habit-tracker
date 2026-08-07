@@ -88,6 +88,18 @@ appAlertDialog?.addEventListener("click", (event) => {
 });
 
 const emojiInput = document.querySelector("[data-single-grapheme]");
+const signupEmailInput = document.querySelector("[data-signup-email]");
+
+signupEmailInput?.addEventListener("invalid", () => {
+  signupEmailInput.setCustomValidity("");
+  if (signupEmailInput.validity.typeMismatch || signupEmailInput.validity.patternMismatch) {
+    signupEmailInput.setCustomValidity("name@example.com 형식으로 입력해 주세요.");
+  }
+});
+
+signupEmailInput?.addEventListener("input", () => {
+  signupEmailInput.setCustomValidity("");
+});
 
 function firstGrapheme(value) {
   if (typeof Intl.Segmenter === "function") {

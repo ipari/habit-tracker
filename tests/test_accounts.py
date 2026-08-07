@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
@@ -133,6 +134,48 @@ def test_invitation_is_twelve_characters_and_reusable(client: TestClient) -> Non
         assert first is not None
         assert first.email == "First@Example.com"
         assert first.invitation_id == invitation.id
+
+
+@pytest.mark.parametrize(
+    "invalid_email",
+    (
+        "user@example",
+        ".user@example.com",
+        "user..name@example.com",
+        "user@-example.com",
+        "user@example..com",
+    ),
+)
+def test_signup_rejects_invalid_email_formats(
+    client: TestClient, invalid_email: str
+) -> None:
+    invitation = create_owner_invitation(client)
+    clear_auth(client)
+    page = client.get(f"/invite/{invitation.code}")
+
+    assert 'type="email"' in page.text
+    assert 'data-signup-email' in page.text
+    assert 'class="signup-submit"' in page.text
+    assert 'class="card signup-card"' in page.text
+    assert 'class="signup-form"' in page.text
+    assert page.text.count('class="signup-field"') == 3
+    assert "name@example.com 형식으로 입력해 주세요." not in page.text
+
+    response = client.post(
+        f"/invite/{invitation.code}",
+        data={
+            "email": invalid_email,
+            "password": "member password",
+            "password_confirmation": "member password",
+            "csrf_token": csrf_token(client),
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+    assert "올바른 이메일 주소를 입력해 주세요." in response.text
+    with client_database(client).session_factory() as db:
+        assert db.scalar(select(func.count()).select_from(User)) == 1
 
 
 def test_canceled_invitation_blocks_new_signup_but_keeps_history(

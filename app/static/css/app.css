@@ -79,6 +79,11 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .login-card h1 { text-wrap: balance; }
 .login-field { display: grid; gap: .5rem; }
 .login-submit { margin-top: .3rem; }
+.signup-card h1 { margin: 0; }
+.signup-intro { margin: .65rem 0 0; }
+.signup-form { gap: 1rem; margin-top: 1.6rem; }
+.signup-field { display: grid; gap: .45rem; }
+.signup-submit { margin-top: .35rem; }
 .password-toggle.secondary { display: grid; width: 3rem; min-width: 3rem; padding: 0; place-items: center; border: 1px solid var(--threads-border); background: var(--threads-raised); color: var(--threads-text); }
 .password-toggle.secondary:hover { background: var(--completion-idle-hover); }
 .password-toggle svg { width: 1.3rem; height: 1.3rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }

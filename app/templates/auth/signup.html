@@ -1,20 +1,26 @@
 {% extends "base.html" %}
 {% block title %}회원가입 · Habit Tracker{% endblock %}
 {% block content %}
-  <section class="card" aria-labelledby="signup-title">
-    <h1 id="signup-title">초대받은 계정 만들기</h1>
+  <section class="card signup-card" aria-labelledby="signup-title">
+    <h1 id="signup-title">회원가입</h1>
     {% if available %}
-      <p class="muted">이메일과 비밀번호로 나만의 습관 기록을 시작하세요.</p>
+      <p class="muted signup-intro">나만의 습관 기록을 시작해요.</p>
       {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
-      <form method="post" action="/invite/{{ invitation.code }}">
+      <form class="signup-form" method="post" action="/invite/{{ invitation.code }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <label for="email">이메일</label>
-        <input id="email" name="email" type="email" value="{{ email }}" required maxlength="254" autocomplete="email">
-        <label for="password">비밀번호</label>
-        <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password">
-        <label for="password-confirmation">비밀번호 확인</label>
-        <input id="password-confirmation" name="password_confirmation" type="password" required minlength="8" autocomplete="new-password">
-        <button type="submit">가입하기</button>
+        <div class="signup-field">
+          <label for="email">이메일</label>
+          <input id="email" name="email" type="email" value="{{ email }}" required maxlength="254" autocomplete="email" inputmode="email" pattern="[^\s@]+@[^\s@]+\.[^\s@]+" data-signup-email>
+        </div>
+        <div class="signup-field">
+          <label for="password">비밀번호</label>
+          <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password">
+        </div>
+        <div class="signup-field">
+          <label for="password-confirmation">비밀번호 확인</label>
+          <input id="password-confirmation" name="password_confirmation" type="password" required minlength="8" autocomplete="new-password">
+        </div>
+        <button class="signup-submit" type="submit">가입하기</button>
       </form>
     {% else %}
       <p class="error" role="alert">사용할 수 없는 초대 링크입니다.</p>

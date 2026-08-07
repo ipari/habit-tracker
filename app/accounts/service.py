@@ -8,15 +8,38 @@ from sqlalchemy.orm import Session
 from app.auth.security import password_hasher, token_hash
 from app.db.models import Invitation, PasswordResetToken
 
-EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+EMAIL_LOCAL_PATTERN = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$")
+EMAIL_DOMAIN_LABEL_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
+
+
+def validated_email_parts(value: str) -> tuple[str, str]:
+    email = value.strip()
+    if len(email) > 254 or email.count("@") != 1:
+        raise ValueError("올바른 이메일 주소를 입력해 주세요.")
+    local_part, domain = email.rsplit("@", 1)
+    try:
+        ascii_domain = domain.encode("idna").decode("ascii")
+    except UnicodeError as exc:
+        raise ValueError("올바른 이메일 주소를 입력해 주세요.") from exc
+    labels = ascii_domain.split(".")
+    is_valid = (
+        0 < len(local_part) <= 64
+        and EMAIL_LOCAL_PATTERN.fullmatch(local_part) is not None
+        and not local_part.startswith(".")
+        and not local_part.endswith(".")
+        and ".." not in local_part
+        and len(ascii_domain) <= 253
+        and len(labels) >= 2
+        and len(labels[-1]) >= 2
+        and all(EMAIL_DOMAIN_LABEL_PATTERN.fullmatch(label) for label in labels)
+    )
+    if not is_valid:
+        raise ValueError("올바른 이메일 주소를 입력해 주세요.")
+    return email, f"{local_part.casefold()}@{ascii_domain.casefold()}"
 
 
 def normalize_email(value: str) -> tuple[str, str]:
-    email = value.strip()
-    normalized = email.casefold()
-    if len(email) > 254 or not EMAIL_PATTERN.fullmatch(email):
-        raise ValueError("올바른 이메일 주소를 입력해 주세요.")
-    return email, normalized
+    return validated_email_parts(value)
 
 
 def validate_new_password(password: str, confirmation: str) -> str:
