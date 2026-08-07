@@ -14,6 +14,7 @@ from app.reminders.sender import ExpiredSubscriptionError, send_push
 
 logger = logging.getLogger(__name__)
 SendFunction = Callable[[PushSubscription, dict[str, str], Settings], None]
+STALLED_PENDING_TIMEOUT = timedelta(minutes=2)
 
 
 def delivery_payload(reminder: Reminder, scheduled_for: datetime) -> dict[str, str]:
@@ -93,6 +94,60 @@ def deliver_once(
     db.commit()
 
 
+def recover_stalled_deliveries(
+    db: Session,
+    now: datetime,
+    settings: Settings,
+    send: SendFunction,
+) -> set[int]:
+    """Retry deliveries left in "pending" by a process that died mid-send.
+
+    ``deliver_once`` commits status="pending" before calling ``send``, so a
+    crash between that commit and the outcome commit leaves the row stuck.
+    The normal retry path in ``run_once`` only considers occurrences inside
+    the current lookback window, which a longer outage pushes out of range,
+    so stalled deliveries are retried here directly rather than through
+    that occurrence loop.
+    """
+    cutoff = now - STALLED_PENDING_TIMEOUT
+    stalled = db.scalars(
+        select(ReminderDelivery).where(
+            ReminderDelivery.status == "pending",
+            ReminderDelivery.attempted_at < cutoff,
+        )
+    ).all()
+    if not stalled:
+        return set()
+
+    retried_delivery_ids: set[int] = set()
+    terminal_status_changed = False
+    for delivery in stalled:
+        reminder = delivery.reminder
+        subscription = delivery.subscription
+        if (
+            delivery.attempt_count >= 3
+            or not reminder.is_enabled
+            or reminder.habit.archived_at is not None
+            or not subscription.is_active
+        ):
+            delivery.status = "failed"
+            delivery.error = "발송이 완료되지 않고 중단되었습니다."
+            terminal_status_changed = True
+            continue
+        # Do not commit the intermediate failed state. If the process dies before
+        # deliver_once claims the row as pending again, the previous pending state
+        # remains recoverable on the next scheduler run.
+        delivery.status = "failed"
+        delivery.error = "발송이 완료되지 않고 중단되었습니다."
+        retried_delivery_ids.add(delivery.id)
+        deliver_once(
+            db, reminder, subscription, delivery.scheduled_for, now, settings, send
+        )
+    if terminal_status_changed:
+        db.commit()
+    return retried_delivery_ids
+
+
 def run_once(
     db: Session,
     settings: Settings,
@@ -101,13 +156,14 @@ def run_once(
     send: SendFunction = send_push,
 ) -> int:
     current = (now or datetime.now(UTC)).astimezone(UTC)
+    recovered_delivery_ids = recover_stalled_deliveries(db, current, settings, send)
+    attempts = len(recovered_delivery_ids)
     window_start = current - timedelta(minutes=settings.reminder_lookback_minutes)
     reminders = db.scalars(
         select(Reminder)
         .join(Reminder.habit)
         .where(Reminder.is_enabled.is_(True), Habit.archived_at.is_(None))
     ).all()
-    attempts = 0
     for reminder in reminders:
         subscriptions = db.scalars(
             select(PushSubscription).where(
@@ -129,6 +185,8 @@ def run_once(
                 before = existing_delivery(
                     db, reminder.id, subscription.id, scheduled_for
                 )
+                if before is not None and before.id in recovered_delivery_ids:
+                    continue
                 if before is None or (before.status == "failed" and before.attempt_count < 3):
                     attempts += 1
                 deliver_once(

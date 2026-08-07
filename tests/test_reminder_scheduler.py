@@ -1,6 +1,7 @@
 from datetime import UTC, date, datetime, time
 from typing import cast
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -9,8 +10,8 @@ from app.config import Settings
 from app.db.models import PushSubscription, Reminder, ReminderDelivery
 from app.domain.schedules import weekdays_to_mask
 from app.reminders.schedule import scheduled_occurrences, scheduled_utc
-from app.reminders.scheduler import run_once
-from app.reminders.sender import ExpiredSubscriptionError
+from app.reminders.scheduler import recover_stalled_deliveries, run_once
+from app.reminders.sender import ExpiredSubscriptionError, send_push
 from tests.conftest import client_database, login
 from tests.test_habits import create_habit
 
@@ -144,3 +145,213 @@ def test_transient_failure_retries_at_most_three_times(client: TestClient) -> No
         assert delivery.attempt_count == 3
 
     assert calls == 3
+
+
+def test_stalled_pending_delivery_outside_lookback_window_is_retried(
+    client: TestClient,
+) -> None:
+    """A crash-interrupted delivery must be retried even after an outage
+    longer than reminder_lookback_minutes pushes its scheduled_for out of
+    the normal occurrence-scan window."""
+    login(client)
+    reminder_id, subscription_id = add_enabled_reminder_and_subscription(client)
+    scheduled_for = datetime(2026, 7, 1, 9, 0, 0, tzinfo=UTC)
+    stuck_attempted_at = datetime(2026, 7, 1, 9, 0, 5, tzinfo=UTC)
+    # A Monday, far from any of this Saturday reminder's own occurrences, so
+    # the only attempt in this run_once call is the recovered stalled one.
+    now = datetime(2026, 8, 3, 12, 0, 0, tzinfo=UTC)
+    sent: list[dict[str, str]] = []
+
+    def fake_send(
+        _subscription: PushSubscription, payload: dict[str, str], _settings: Settings
+    ) -> None:
+        sent.append(payload)
+
+    database = client_database(client)
+    app = cast(FastAPI, client.app)
+    with database.session_factory() as db:
+        db.add(
+            ReminderDelivery(
+                reminder_id=reminder_id,
+                subscription_id=subscription_id,
+                scheduled_for=scheduled_for,
+                status="pending",
+                attempt_count=1,
+                attempted_at=stuck_attempted_at,
+            )
+        )
+        db.commit()
+
+        assert run_once(db, app.state.settings, now=now, send=fake_send) == 1
+
+        delivery = db.scalar(
+            select(ReminderDelivery).where(
+                ReminderDelivery.reminder_id == reminder_id,
+                ReminderDelivery.subscription_id == subscription_id,
+            )
+        )
+        assert delivery is not None
+        assert delivery.status == "sent"
+        assert delivery.attempt_count == 2
+
+    assert len(sent) == 1
+
+
+def test_recover_stalled_deliveries_stops_at_three_attempts(client: TestClient) -> None:
+    login(client)
+    reminder_id, subscription_id = add_enabled_reminder_and_subscription(client)
+    now = datetime(2026, 8, 1, 0, 0, 30, tzinfo=UTC)
+    app = cast(FastAPI, client.app)
+
+    def fake_send(
+        _subscription: PushSubscription, _payload: dict[str, str], _settings: Settings
+    ) -> None:
+        raise AssertionError("should not retry a delivery that already used 3 attempts")
+
+    database = client_database(client)
+    with database.session_factory() as db:
+        db.add(
+            ReminderDelivery(
+                reminder_id=reminder_id,
+                subscription_id=subscription_id,
+                scheduled_for=datetime(2026, 7, 1, 9, 0, 0, tzinfo=UTC),
+                status="pending",
+                attempt_count=3,
+                attempted_at=datetime(2026, 7, 1, 9, 0, 5, tzinfo=UTC),
+            )
+        )
+        db.commit()
+
+        assert recover_stalled_deliveries(db, now, app.state.settings, fake_send) == set()
+
+        delivery = db.scalar(
+            select(ReminderDelivery).where(
+                ReminderDelivery.reminder_id == reminder_id,
+                ReminderDelivery.subscription_id == subscription_id,
+            )
+        )
+        assert delivery is not None
+        assert delivery.status == "failed"
+        assert delivery.attempt_count == 3
+
+
+def test_recover_stalled_deliveries_ignores_recent_pending(client: TestClient) -> None:
+    login(client)
+    reminder_id, subscription_id = add_enabled_reminder_and_subscription(client)
+    now = datetime(2026, 8, 1, 0, 0, 30, tzinfo=UTC)
+    app = cast(FastAPI, client.app)
+
+    database = client_database(client)
+    with database.session_factory() as db:
+        db.add(
+            ReminderDelivery(
+                reminder_id=reminder_id,
+                subscription_id=subscription_id,
+                scheduled_for=datetime(2026, 8, 1, 0, 0, 0, tzinfo=UTC),
+                status="pending",
+                attempt_count=1,
+                attempted_at=now,
+            )
+        )
+        db.commit()
+
+        assert recover_stalled_deliveries(db, now, app.state.settings, send_push) == set()
+
+        delivery = db.scalar(
+            select(ReminderDelivery).where(
+                ReminderDelivery.reminder_id == reminder_id,
+                ReminderDelivery.subscription_id == subscription_id,
+            )
+        )
+        assert delivery is not None
+        assert delivery.status == "pending"
+
+
+def test_stalled_recovery_keeps_pending_if_process_dies_before_retry_claim(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    login(client)
+    reminder_id, subscription_id = add_enabled_reminder_and_subscription(client)
+    now = datetime(2026, 8, 1, 0, 10, 0, tzinfo=UTC)
+    database = client_database(client)
+    app = cast(FastAPI, client.app)
+
+    class SchedulerCrash(BaseException):
+        pass
+
+    def crash_before_claim(*_args: object, **_kwargs: object) -> None:
+        raise SchedulerCrash
+
+    monkeypatch.setattr("app.reminders.scheduler.deliver_once", crash_before_claim)
+    with database.session_factory() as db:
+        db.add(
+            ReminderDelivery(
+                reminder_id=reminder_id,
+                subscription_id=subscription_id,
+                scheduled_for=datetime(2026, 8, 1, 0, 0, 0, tzinfo=UTC),
+                status="pending",
+                attempt_count=1,
+                attempted_at=datetime(2026, 8, 1, 0, 0, 5, tzinfo=UTC),
+            )
+        )
+        db.commit()
+
+        with pytest.raises(SchedulerCrash):
+            recover_stalled_deliveries(db, now, app.state.settings, send_push)
+
+    with database.session_factory() as db:
+        delivery = db.scalar(
+            select(ReminderDelivery).where(
+                ReminderDelivery.reminder_id == reminder_id,
+                ReminderDelivery.subscription_id == subscription_id,
+            )
+        )
+        assert delivery is not None
+        assert delivery.status == "pending"
+        assert delivery.attempt_count == 1
+
+
+def test_recovered_delivery_is_not_retried_twice_in_same_run(
+    client: TestClient,
+) -> None:
+    login(client)
+    reminder_id, subscription_id = add_enabled_reminder_and_subscription(client)
+    scheduled_for = datetime(2026, 8, 1, 0, 0, 0, tzinfo=UTC)
+    now = datetime(2026, 8, 1, 0, 3, 0, tzinfo=UTC)
+    calls = 0
+
+    def failing_send(
+        _subscription: PushSubscription, _payload: dict[str, str], _settings: Settings
+    ) -> None:
+        nonlocal calls
+        calls += 1
+        raise RuntimeError("temporary push service failure")
+
+    database = client_database(client)
+    app = cast(FastAPI, client.app)
+    with database.session_factory() as db:
+        db.add(
+            ReminderDelivery(
+                reminder_id=reminder_id,
+                subscription_id=subscription_id,
+                scheduled_for=scheduled_for,
+                status="pending",
+                attempt_count=1,
+                attempted_at=datetime(2026, 8, 1, 0, 0, 5, tzinfo=UTC),
+            )
+        )
+        db.commit()
+
+        assert run_once(db, app.state.settings, now=now, send=failing_send) == 1
+
+        delivery = db.scalar(
+            select(ReminderDelivery).where(
+                ReminderDelivery.reminder_id == reminder_id,
+                ReminderDelivery.subscription_id == subscription_id,
+            )
+        )
+        assert delivery is not None
+        assert delivery.status == "failed"
+        assert delivery.attempt_count == 2
+
+    assert calls == 1
