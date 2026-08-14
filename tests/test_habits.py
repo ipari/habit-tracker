@@ -148,12 +148,48 @@ def test_habit_detail_collects_management_actions(client: TestClient) -> None:
     assert "<strong>켜짐</strong>" in detail.text
     assert "공유 배경" not in detail.text
     assert detail.text.index("습관 설정 요약") < detail.text.index("<span>보관</span>")
+    assert 'aria-label="달성 현황"' in detail.text
+    assert ">달성 현황</h2>" not in detail.text
+    assert f"{today.year}년 {today.month}월" in detail.text
+    assert 'class="calendar-status-dot missed"' in detail.text
+    assert 'aria-label="습관 달성 상태 범례"' in detail.text
+    assert '<i class="legend-dot complete"></i>달성' in detail.text
+    assert '<i class="legend-dot missed"></i>미달성' in detail.text
+    assert "모두 달성" not in detail.text
+    assert "부분 달성" not in detail.text
+    assert detail.text.index("습관 달성 상태 범례") < detail.text.index("<span>보관</span>")
     assert "<span>삭제</span>" not in detail.text
 
     management = client.get("/habits")
     assert f'href="/habits/{habit_id}?from=habits"' in management.text
     assert f'href="/habits/{habit_id}/share"' not in management.text
     assert f'href="/habits/{habit_id}/edit"' not in management.text
+
+
+def test_habit_detail_calendar_shows_completion_and_preserves_origin(
+    client: TestClient,
+) -> None:
+    habit_id = create_habit(client)
+    token = csrf_token(client)
+    database = client_database(client)
+    with database.session_factory() as db:
+        today = current_local_date(db)
+    client.post(
+        f"/habits/{habit_id}/completions/{today.isoformat()}",
+        data={"completed": "true", "csrf_token": token},
+    )
+
+    detail = client.get(f"/habits/{habit_id}?from=today")
+
+    assert 'class="calendar-status-dot complete"' in detail.text
+    assert f'aria-label="{today.month}월 {today.day}일, 달성"' in detail.text
+    assert (
+        f'href="/habits/{habit_id}?from=today&amp;month=' in detail.text
+    )
+    assert detail.text.count('class="month-button"') == 2
+
+    invalid = client.get(f"/habits/{habit_id}?month=invalid")
+    assert invalid.status_code == 400
 
 
 def test_habit_detail_uses_compact_schedule_labels() -> None:

@@ -53,6 +53,8 @@
     {% endif %}
   </section>
 
+  {% include "habits/_detail_calendar.html" %}
+
   {% if habit.archived_at is none %}
     <form
       class="detail-delete"

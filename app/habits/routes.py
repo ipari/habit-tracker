@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.auth.dependencies import DbSession, MemberIdentity
+from app.calendar.service import WEEKDAY_HEADERS, build_habit_calendar_view
 from app.db.models import Habit, Reminder
 from app.domain.schedules import WEEKDAY_LABELS, mask_to_weekdays, weekdays_to_mask
 from app.habits.service import (
@@ -79,6 +80,15 @@ def detail_schedule_label(weekdays: tuple[int, ...]) -> str:
 
 def habit_start_label(local_date: date) -> str:
     return f"{local_date.year}년 {local_date.month}월 {local_date.day}일 처음 시작"
+
+
+def detail_calendar_month(value: str | None, today: date) -> date:
+    if value is None:
+        return date(today.year, today.month, 1)
+    try:
+        return date.fromisoformat(f"{value}-01")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid calendar month") from exc
 
 
 def normalize_return_to(value: str | None) -> str:
@@ -253,7 +263,11 @@ def new_habit(
 
 @router.get("/habits/{habit_id}", response_class=HTMLResponse)
 def habit_detail(
-    habit_id: int, request: Request, db: DbSession, identity: MemberIdentity
+    habit_id: int,
+    request: Request,
+    db: DbSession,
+    identity: MemberIdentity,
+    month: str | None = None,
 ) -> HTMLResponse:
     assert identity.user_id is not None
     habit = habit_or_404(db, habit_id, identity.user_id)
@@ -268,6 +282,13 @@ def habit_detail(
     )
     reminder = habit.reminder
     origin = normalize_return_to(request.query_params.get("from"))
+    habit_calendar = build_habit_calendar_view(
+        db,
+        habit,
+        detail_calendar_month(month, local_date),
+        local_date,
+        identity.user_id,
+    )
     return render_template(
         request,
         "habits/detail.html",
@@ -284,6 +305,8 @@ def habit_detail(
             "reminder_label": (
                 "켜짐" if reminder is not None and reminder.is_enabled else "꺼짐"
             ),
+            "habit_calendar": habit_calendar,
+            "weekday_headers": WEEKDAY_HEADERS,
             "archived": request.query_params.get("archived") == "1",
             "return_to": origin,
             "return_path": return_path(origin),

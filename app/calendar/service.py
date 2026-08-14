@@ -63,6 +63,26 @@ class CalendarView:
     additional_habits: list[CalendarHabit]
 
 
+@dataclass(frozen=True)
+class HabitCalendarDay:
+    local_date: date
+    in_month: bool
+    is_today: bool
+    scheduled: bool
+    completed: bool
+    state: str
+    status_text: str
+
+
+@dataclass(frozen=True)
+class HabitCalendarView:
+    month_start: date
+    month_label: str
+    previous_month: date
+    next_month: date
+    weeks: list[list[HabitCalendarDay]]
+
+
 def shift_month(month_start: date, months: int) -> date:
     absolute_month = month_start.year * 12 + month_start.month - 1 + months
     year, zero_based_month = divmod(absolute_month, 12)
@@ -266,4 +286,80 @@ def build_calendar_view(
         selected_is_future=selected_date > today,
         habits=selected_habits,
         additional_habits=additional_habits,
+    )
+
+
+def build_habit_calendar_view(
+    db: Session,
+    habit: Habit,
+    month_start: date,
+    today: date,
+    user_id: int,
+) -> HabitCalendarView:
+    raw_weeks = month_dates(month_start)
+    grid_start, grid_end = raw_weeks[0][0], raw_weeks[-1][-1]
+    schedules = [
+        ScheduleWindow(
+            weekdays_mask=schedule.weekdays_mask,
+            effective_from=schedule.effective_from,
+            effective_until=schedule.effective_until,
+        )
+        for schedule in sorted(
+            habit.schedules,
+            key=lambda schedule: (schedule.effective_from, schedule.id),
+        )
+    ]
+    completion_dates = set(
+        db.scalars(
+            select(HabitCompletion.local_date).where(
+                HabitCompletion.habit_id == habit.id,
+                HabitCompletion.local_date >= grid_start,
+                HabitCompletion.local_date <= grid_end,
+            )
+        ).all()
+    )
+
+    weeks: list[list[HabitCalendarDay]] = []
+    for raw_week in raw_weeks:
+        week: list[HabitCalendarDay] = []
+        for local_date in raw_week:
+            window = schedule_for_date(schedules, local_date)
+            visible = window is not None and _habit_visible_on(
+                db, habit, local_date, user_id
+            )
+            scheduled = bool(
+                visible and window is not None and is_scheduled(window, local_date)
+            )
+            completed = visible and local_date in completion_dates
+            if local_date > today:
+                state = "future"
+                status_text = "수행 예정" if scheduled else "미래 날짜"
+            elif completed:
+                state = "complete"
+                status_text = "달성"
+            elif scheduled:
+                state = "missed"
+                status_text = "미달성"
+            else:
+                state = "empty"
+                status_text = "수행일 아님"
+            week.append(
+                HabitCalendarDay(
+                    local_date=local_date,
+                    in_month=local_date.month == month_start.month,
+                    is_today=local_date == today,
+                    scheduled=scheduled,
+                    completed=completed,
+                    state=state,
+                    status_text=status_text,
+                )
+            )
+        weeks.append(week)
+
+    return HabitCalendarView(
+        month_start=month_start,
+        month_label=f"{month_start.year}년 {month_start.month}월",
+        previous_month=shift_month(month_start, -1),
+        next_month=shift_month(month_start, 1),
+        weeks=weeks,
     )

@@ -3,7 +3,12 @@ from datetime import UTC, date, datetime, time, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from app.calendar.service import build_calendar_view, month_dates, shift_month
+from app.calendar.service import (
+    build_calendar_view,
+    build_habit_calendar_view,
+    month_dates,
+    shift_month,
+)
 from app.db.models import Habit, HabitCompletion, HabitSchedule, Reminder
 from app.domain.schedules import weekdays_to_mask
 from app.habits.service import current_local_date
@@ -63,6 +68,69 @@ def test_calendar_classifies_completion_and_missed_day(client: TestClient) -> No
     future = days[today + timedelta(days=1)]
     assert future.state == "future"
     assert future.status_text == "미래 날짜, 예정 1개"
+
+
+def test_habit_calendar_marks_completed_and_missed_schedule_days(
+    client: TestClient,
+) -> None:
+    habit_id, today = seed_daily_habit(client)
+    with client_database(client).session_factory() as db:
+        db.add(HabitCompletion(habit_id=habit_id, local_date=today))
+        db.commit()
+        habit = db.get(Habit, habit_id)
+        assert habit is not None
+        assert habit.user_id is not None
+        view = build_habit_calendar_view(
+            db,
+            habit,
+            date(today.year, today.month, 1),
+            today,
+            habit.user_id,
+        )
+
+    days = {day.local_date: day for week in view.weeks for day in week}
+    assert days[today].state == "complete"
+    assert days[today].status_text == "달성"
+    assert days[today - timedelta(days=1)].state == "missed"
+    assert days[today - timedelta(days=1)].status_text == "미달성"
+    assert days[today + timedelta(days=1)].scheduled is True
+    assert days[today + timedelta(days=1)].state == "future"
+    assert days[today + timedelta(days=1)].status_text == "수행 예정"
+    assert not any(day.state == "partial" for week in view.weeks for day in week)
+
+
+def test_habit_calendar_includes_unscheduled_extra_completion(
+    client: TestClient,
+) -> None:
+    database = client_database(client)
+    with database.session_factory() as db:
+        today = current_local_date(db)
+        other_weekday = (today.weekday() + 1) % 7
+        habit = Habit(name="추가 운동", emoji="🏃", background_preset="forest")
+        db.add(habit)
+        db.flush()
+        db.add(
+            HabitSchedule(
+                habit=habit,
+                weekdays_mask=weekdays_to_mask([other_weekday]),
+                effective_from=today - timedelta(days=7),
+            )
+        )
+        db.add(HabitCompletion(habit=habit, local_date=today))
+        db.commit()
+        assert habit.user_id is not None
+        view = build_habit_calendar_view(
+            db,
+            habit,
+            date(today.year, today.month, 1),
+            today,
+            habit.user_id,
+        )
+
+    day = next(day for week in view.weeks for day in week if day.local_date == today)
+    assert day.scheduled is False
+    assert day.completed is True
+    assert day.state == "complete"
 
 
 def test_calendar_marks_unscheduled_completion_as_extra(client: TestClient) -> None:

@@ -1,0 +1,45 @@
+<section class="habit-calendar-section" aria-label="달성 현황">
+  <div class="calendar-card habit-calendar-card">
+    <header class="calendar-nav">
+      <a
+        class="month-button"
+        href="/habits/{{ habit.id }}?from={{ return_to }}&amp;month={{ habit_calendar.previous_month.strftime('%Y-%m') }}"
+        aria-label="이전 달"
+      ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></a>
+      <h3 id="habit-calendar-month-label">{{ habit_calendar.month_label }}</h3>
+      <a
+        class="month-button"
+        href="/habits/{{ habit.id }}?from={{ return_to }}&amp;month={{ habit_calendar.next_month.strftime('%Y-%m') }}"
+        aria-label="다음 달"
+      ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
+    </header>
+
+    <div class="calendar-grid weekday-header" role="row">
+      {% for weekday in weekday_headers %}<span role="columnheader">{{ weekday }}</span>{% endfor %}
+    </div>
+    <div class="calendar-weeks" role="grid" aria-labelledby="habit-calendar-month-label">
+      {% for week in habit_calendar.weeks %}
+        <div class="calendar-grid" role="row">
+          {% for day in week %}
+            <div role="gridcell">
+              <div
+                class="calendar-day habit-calendar-day state-{{ day.state }}{% if not day.in_month %} outside-month{% endif %}"
+                {% if day.is_today %}aria-current="date"{% endif %}
+                aria-label="{{ day.local_date.month }}월 {{ day.local_date.day }}일, {{ day.status_text }}"
+              >
+                <span class="day-number">{{ day.local_date.day }}</span>
+                <span class="day-summary" aria-hidden="true">
+                  {% if day.state in ('complete', 'missed') %}<i class="calendar-status-dot {{ day.state }}"></i>{% endif %}
+                </span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="calendar-legend" aria-label="습관 달성 상태 범례">
+    <span><i class="legend-dot complete"></i>달성</span>
+    <span><i class="legend-dot missed"></i>미달성</span>
+  </div>
+</section>
