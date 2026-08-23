@@ -1,4 +1,5 @@
 import base64
+import secrets
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, Field, field_validator
@@ -81,7 +82,6 @@ def save_subscription(
     subscription = db.scalar(
         select(PushSubscription).where(
             PushSubscription.endpoint == payload.endpoint,
-            PushSubscription.user_id == identity.user_id,
         )
     )
     if subscription is None:
@@ -89,6 +89,16 @@ def save_subscription(
             endpoint=payload.endpoint, user_id=identity.user_id
         )
         db.add(subscription)
+    elif subscription.user_id != identity.user_id:
+        if (
+            not secrets.compare_digest(subscription.p256dh, payload.keys.p256dh)
+            or not secrets.compare_digest(subscription.auth, payload.keys.auth)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Push subscription ownership could not be verified",
+            )
+        subscription.user_id = identity.user_id
     subscription.p256dh = payload.keys.p256dh
     subscription.auth = payload.keys.auth
     subscription.user_agent = request.headers.get("user-agent", "")[:512]

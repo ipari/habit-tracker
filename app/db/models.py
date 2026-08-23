@@ -308,7 +308,7 @@ class ReminderDelivery(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'sent', 'failed')",
+            "status IN ('pending', 'sent', 'failed', 'skipped')",
             name="ck_reminder_deliveries_status",
         ),
         CheckConstraint("attempt_count >= 0", name="ck_reminder_deliveries_attempt_count"),

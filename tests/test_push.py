@@ -109,6 +109,71 @@ def test_subscription_is_csrf_protected_and_idempotently_saved(
         assert subscription.user_agent == "Test Device"
 
 
+def test_matching_legacy_unowned_subscription_is_claimed(
+    push_client: TestClient,
+) -> None:
+    login(push_client)
+    payload = subscription_payload()
+    app = cast(FastAPI, push_client.app)
+    with app.state.database.session_factory() as db:
+        keys = cast(dict[str, str], payload["keys"])
+        legacy_subscription = PushSubscription(
+            endpoint=cast(str, payload["endpoint"]),
+            p256dh=keys["p256dh"],
+            auth=keys["auth"],
+            user_agent="Legacy device",
+            is_active=True,
+            failure_count=0,
+        )
+        db.add(legacy_subscription)
+        db.commit()
+
+    response = push_client.post(
+        "/api/push/subscriptions",
+        json=payload,
+        headers={"X-CSRF-Token": csrf_token(push_client)},
+    )
+
+    assert response.status_code == 201
+    with app.state.database.session_factory() as db:
+        subscription = db.scalar(select(PushSubscription))
+        owner = db.scalar(select(User).where(User.normalized_email == "owner"))
+        assert subscription is not None
+        assert owner is not None
+        assert subscription.user_id == owner.id
+
+
+def test_legacy_unowned_subscription_requires_matching_keys(
+    push_client: TestClient,
+) -> None:
+    login(push_client)
+    payload = subscription_payload()
+    app = cast(FastAPI, push_client.app)
+    with app.state.database.session_factory() as db:
+        legacy_subscription = PushSubscription(
+            endpoint=cast(str, payload["endpoint"]),
+            p256dh=encode(b"\x04" + b"q" * 64),
+            auth=encode(b"b" * 16),
+            user_agent="Different legacy device",
+            is_active=True,
+            failure_count=0,
+        )
+        db.add(legacy_subscription)
+        db.commit()
+
+    response = push_client.post(
+        "/api/push/subscriptions",
+        json=payload,
+        headers={"X-CSRF-Token": csrf_token(push_client)},
+    )
+
+    assert response.status_code == 409
+    with app.state.database.session_factory() as db:
+        subscription = db.scalar(select(PushSubscription))
+        assert subscription is not None
+        assert subscription.user_id is None
+
+
 def test_subscription_payload_rejects_insecure_endpoint(push_client: TestClient) -> None:
     login(push_client)
     token = csrf_token(push_client)
@@ -156,7 +221,7 @@ def test_current_device_subscription_can_be_disabled(push_client: TestClient) ->
         assert subscription.is_active is False
 
 
-def test_other_member_cannot_disable_or_take_over_subscription(
+def test_other_member_cannot_disable_but_can_connect_same_browser_subscription(
     push_client: TestClient,
 ) -> None:
     login(push_client)
@@ -203,17 +268,26 @@ def test_other_member_cannot_disable_or_take_over_subscription(
         headers={"X-CSRF-Token": other_csrf},
     )
     assert disabled.status_code == 200
+    mismatched_payload = subscription_payload()
+    mismatched_keys = cast(dict[str, str], mismatched_payload["keys"])
+    mismatched_keys["auth"] = encode(b"b" * 16)
+    rejected_takeover = push_client.post(
+        "/api/push/subscriptions",
+        json=mismatched_payload,
+        headers={"X-CSRF-Token": other_csrf},
+    )
+    assert rejected_takeover.status_code == 409
     takeover = push_client.post(
         "/api/push/subscriptions",
         json=payload,
         headers={"X-CSRF-Token": other_csrf},
     )
-    assert takeover.status_code == 503
+    assert takeover.status_code == 201
     with app.state.database.session_factory() as db:
         subscription = db.scalar(select(PushSubscription))
         assert subscription is not None
         assert subscription.is_active is True
-        assert subscription.user_id != other_id
+        assert subscription.user_id == other_id
 
 
 def test_partial_vapid_configuration_is_rejected(password_hash: str) -> None:

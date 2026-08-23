@@ -9,7 +9,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LEGACY_REVISION = "20260801_0005"
 MULTI_USER_REVISION = "20260807_0006"
-CURRENT_REVISION = "20260807_0007"
+CURRENT_REVISION = "20260823_0008"
 
 
 def run_alembic(database_path: Path, revision: str) -> None:
@@ -104,7 +104,7 @@ def test_multi_user_upgrade_preserves_all_legacy_relational_data(
 
     run_alembic(database_path, "head")
 
-    with sqlite3.connect(f"file:{database_path}?mode=ro", uri=True) as db:
+    with sqlite3.connect(database_path) as db:
         assert db.execute("PRAGMA quick_check").fetchone()[0] == "ok"
         assert db.execute("SELECT version_num FROM alembic_version").fetchone()[0] == (
             CURRENT_REVISION
@@ -144,6 +144,16 @@ def test_multi_user_upgrade_preserves_all_legacy_relational_data(
             row[2] == "users" and row[3] == "user_id"
             for row in db.execute("PRAGMA foreign_key_list(push_subscriptions)")
         )
+        db.execute(
+            "UPDATE reminder_deliveries SET status = 'skipped' WHERE id = 1"
+        )
+        assert db.execute(
+            "SELECT status FROM reminder_deliveries WHERE id = 1"
+        ).fetchone() == ("skipped",)
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute(
+                "UPDATE reminder_deliveries SET status = 'invalid' WHERE id = 1"
+            )
 
 
 def test_single_active_invitation_upgrade_keeps_only_newest_active_link(

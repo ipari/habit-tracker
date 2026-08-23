@@ -127,7 +127,7 @@ REMINDER_LOOKBACK_MINUTES=5
 .venv/bin/python -m app.reminders.scheduler
 ```
 
-운영 환경의 PWA 설치와 Web Push에는 HTTPS가 필요합니다. 알림 권한은 앱의 안내에서 사용자가 직접 허용한 뒤 기기별 Push Subscription으로 등록됩니다.
+운영 환경의 PWA 설치와 Web Push에는 HTTPS가 필요합니다. 알림 권한은 앱의 안내에서 사용자가 직접 허용한 뒤 기기별 Push Subscription으로 등록됩니다. 습관의 알림 시각 전에 해당 날짜의 달성을 기록하면 그날 등록된 모든 기기의 알림을 생략합니다.
 
 ## 검사
 

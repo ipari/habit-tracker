@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from typing import cast
 
 import pytest
@@ -7,7 +7,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.config import Settings
-from app.db.models import PushSubscription, Reminder, ReminderDelivery
+from app.db.models import (
+    HabitCompletion,
+    PushSubscription,
+    Reminder,
+    ReminderDelivery,
+)
 from app.domain.schedules import weekdays_to_mask
 from app.reminders.schedule import scheduled_occurrences, scheduled_utc
 from app.reminders.scheduler import recover_stalled_deliveries, run_once
@@ -89,6 +94,118 @@ def test_scheduler_sends_once_per_subscription_and_scheduled_time(
     assert len(sent) == 1
     assert sent[0]["url"] == "/today"
     assert sent[0]["tag"] == "habit-reminder-1-20260801T000000Z"
+
+
+def test_scheduler_skips_all_devices_when_habit_is_already_completed(
+    client: TestClient,
+) -> None:
+    login(client)
+    reminder_id, _subscription_id = add_enabled_reminder_and_subscription(client)
+    sent: list[dict[str, str]] = []
+
+    def fake_send(
+        _subscription: PushSubscription, payload: dict[str, str], _settings: Settings
+    ) -> None:
+        sent.append(payload)
+
+    database = client_database(client)
+    app = cast(FastAPI, client.app)
+    scheduled_for = scheduled_utc(date(2026, 8, 1), time(9, 0), "Asia/Seoul")
+    with database.session_factory() as db:
+        reminder = db.get(Reminder, reminder_id)
+        assert reminder is not None
+        db.add(HabitCompletion(habit_id=reminder.habit_id, local_date=date(2026, 8, 1)))
+        db.add(
+            PushSubscription(
+                endpoint="https://push.example.test/two",
+                p256dh="p256dh-two",
+                auth="auth-two",
+                user_agent="Second test device",
+                is_active=True,
+                failure_count=0,
+            )
+        )
+        db.commit()
+
+        assert (
+            run_once(
+                db,
+                app.state.settings,
+                now=scheduled_for + timedelta(seconds=30),
+                send=fake_send,
+            )
+            == 0
+        )
+        deliveries = db.scalars(
+            select(ReminderDelivery).where(
+                ReminderDelivery.reminder_id == reminder_id
+            )
+        ).all()
+        assert len(deliveries) == 2
+        assert {delivery.status for delivery in deliveries} == {"skipped"}
+        assert {delivery.attempt_count for delivery in deliveries} == {0}
+        assert all(delivery.attempted_at is None for delivery in deliveries)
+
+        completion = db.scalar(
+            select(HabitCompletion).where(
+                HabitCompletion.habit_id == reminder.habit_id,
+                HabitCompletion.local_date == date(2026, 8, 1),
+            )
+        )
+        assert completion is not None
+        db.delete(completion)
+        db.commit()
+        assert (
+            run_once(
+                db,
+                app.state.settings,
+                now=scheduled_for + timedelta(minutes=1),
+                send=fake_send,
+            )
+            == 0
+        )
+
+    assert sent == []
+
+
+def test_scheduler_uses_reminder_timezone_to_find_completion(
+    client: TestClient,
+) -> None:
+    login(client)
+    reminder_id, _subscription_id = add_enabled_reminder_and_subscription(client)
+    database = client_database(client)
+    app = cast(FastAPI, client.app)
+    local_date = date(2026, 8, 1)
+    scheduled_for = scheduled_utc(local_date, time(9, 0), "America/Los_Angeles")
+
+    def unexpected_send(
+        _subscription: PushSubscription, _payload: dict[str, str], _settings: Settings
+    ) -> None:
+        raise AssertionError("a completed habit must not send a reminder")
+
+    with database.session_factory() as db:
+        reminder = db.get(Reminder, reminder_id)
+        assert reminder is not None
+        reminder.timezone = "America/Los_Angeles"
+        db.add(HabitCompletion(habit_id=reminder.habit_id, local_date=local_date))
+        db.commit()
+
+        assert (
+            run_once(
+                db,
+                app.state.settings,
+                now=scheduled_for + timedelta(seconds=30),
+                send=unexpected_send,
+            )
+            == 0
+        )
+        delivery = db.scalar(
+            select(ReminderDelivery).where(
+                ReminderDelivery.reminder_id == reminder_id
+            )
+        )
+        assert delivery is not None
+        assert delivery.status == "skipped"
 
 
 def test_expired_subscription_is_disabled(client: TestClient) -> None:
@@ -233,6 +350,50 @@ def test_recover_stalled_deliveries_stops_at_three_attempts(client: TestClient) 
         assert delivery is not None
         assert delivery.status == "failed"
         assert delivery.attempt_count == 3
+
+
+def test_recover_stalled_delivery_skips_retry_after_completion(
+    client: TestClient,
+) -> None:
+    login(client)
+    reminder_id, subscription_id = add_enabled_reminder_and_subscription(client)
+    scheduled_for = datetime(2026, 7, 1, 0, 0, 0, tzinfo=UTC)
+    now = datetime(2026, 8, 3, 12, 0, 0, tzinfo=UTC)
+    app = cast(FastAPI, client.app)
+
+    def unexpected_send(
+        _subscription: PushSubscription, _payload: dict[str, str], _settings: Settings
+    ) -> None:
+        raise AssertionError("a completed habit must not retry a stalled reminder")
+
+    database = client_database(client)
+    with database.session_factory() as db:
+        reminder = db.get(Reminder, reminder_id)
+        assert reminder is not None
+        db.add(HabitCompletion(habit_id=reminder.habit_id, local_date=date(2026, 7, 1)))
+        db.add(
+            ReminderDelivery(
+                reminder_id=reminder_id,
+                subscription_id=subscription_id,
+                scheduled_for=scheduled_for,
+                status="pending",
+                attempt_count=1,
+                attempted_at=scheduled_for + timedelta(seconds=5),
+            )
+        )
+        db.commit()
+
+        assert run_once(db, app.state.settings, now=now, send=unexpected_send) == 0
+
+        delivery = db.scalar(
+            select(ReminderDelivery).where(
+                ReminderDelivery.reminder_id == reminder_id,
+                ReminderDelivery.subscription_id == subscription_id,
+            )
+        )
+        assert delivery is not None
+        assert delivery.status == "skipped"
+        assert delivery.attempt_count == 1
 
 
 def test_recover_stalled_deliveries_ignores_recent_pending(client: TestClient) -> None:

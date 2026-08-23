@@ -1,13 +1,20 @@
 import logging
 import time
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
-from app.db.models import Habit, PushSubscription, Reminder, ReminderDelivery
+from app.db.models import (
+    Habit,
+    HabitCompletion,
+    PushSubscription,
+    Reminder,
+    ReminderDelivery,
+)
 from app.db.session import create_database
 from app.reminders.schedule import scheduled_occurrences
 from app.reminders.sender import ExpiredSubscriptionError, send_push
@@ -42,6 +49,56 @@ def existing_delivery(
     )
 
 
+def occurrence_local_date(reminder: Reminder, scheduled_for: datetime) -> date:
+    scheduled_utc = (
+        scheduled_for.replace(tzinfo=UTC)
+        if scheduled_for.tzinfo is None
+        else scheduled_for.astimezone(UTC)
+    )
+    return scheduled_utc.astimezone(ZoneInfo(reminder.timezone)).date()
+
+
+def occurrence_is_completed(
+    db: Session, reminder: Reminder, scheduled_for: datetime
+) -> bool:
+    completion_id = db.scalar(
+        select(HabitCompletion.id)
+        .where(
+            HabitCompletion.habit_id == reminder.habit_id,
+            HabitCompletion.local_date
+            == occurrence_local_date(reminder, scheduled_for),
+        )
+        .limit(1)
+    )
+    return completion_id is not None
+
+
+def mark_delivery_skipped(
+    db: Session,
+    reminder: Reminder,
+    subscription: PushSubscription,
+    scheduled_for: datetime,
+) -> bool:
+    delivery = existing_delivery(db, reminder.id, subscription.id, scheduled_for)
+    if delivery is None:
+        db.add(
+            ReminderDelivery(
+                reminder=reminder,
+                subscription=subscription,
+                scheduled_for=scheduled_for,
+                status="skipped",
+                attempt_count=0,
+                error="",
+            )
+        )
+        return True
+    if delivery.status == "failed":
+        delivery.status = "skipped"
+        delivery.error = ""
+        return True
+    return False
+
+
 def deliver_once(
     db: Session,
     reminder: Reminder,
@@ -52,7 +109,7 @@ def deliver_once(
     send: SendFunction,
 ) -> None:
     delivery = existing_delivery(db, reminder.id, subscription.id, scheduled_for)
-    if delivery is not None and delivery.status in ("pending", "sent"):
+    if delivery is not None and delivery.status in ("pending", "sent", "skipped"):
         return
     if delivery is not None and delivery.attempt_count >= 3:
         return
@@ -124,6 +181,11 @@ def recover_stalled_deliveries(
     for delivery in stalled:
         reminder = delivery.reminder
         subscription = delivery.subscription
+        if occurrence_is_completed(db, reminder, delivery.scheduled_for):
+            delivery.status = "skipped"
+            delivery.error = ""
+            terminal_status_changed = True
+            continue
         if (
             delivery.attempt_count >= 3
             or not reminder.is_enabled
@@ -179,6 +241,15 @@ def run_once(
             window_end=current,
         )
         for scheduled_for in occurrences:
+            if occurrence_is_completed(db, reminder, scheduled_for):
+                skipped_delivery_changed = False
+                for subscription in subscriptions:
+                    skipped_delivery_changed |= mark_delivery_skipped(
+                        db, reminder, subscription, scheduled_for
+                    )
+                if skipped_delivery_changed:
+                    db.commit()
+                continue
             for subscription in subscriptions:
                 if not subscription.is_active:
                     continue
