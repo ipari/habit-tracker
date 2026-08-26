@@ -10,7 +10,9 @@
     class="share-composer"
     data-habit-name="{{ habit.name }}"
     data-habit-emoji="{{ share_emoji }}"
-    data-streak="{{ streak }}"
+    data-total-count="{{ achievement_stats.total_count }}"
+    data-longest-streak="{{ achievement_stats.longest_streak }}"
+    data-current-streak="{{ achievement_stats.current_streak }}"
     data-start-label="{{ start_label }}"
     data-preset="{{ habit.background_preset }}"
   >
@@ -20,7 +22,7 @@
         width="1080"
         height="1920"
         role="img"
-        aria-label="{{ habit.name }}, 연속 {{ streak }}회 달성 공유 이미지 미리보기"
+        aria-label="{{ habit.name }}, 총 달성 {{ achievement_stats.total_count }}회, 최장 연속 달성 {{ achievement_stats.longest_streak }}회, 현재 연속 달성 {{ achievement_stats.current_streak }}회 공유 이미지 미리보기"
       ></canvas>
     </div>
     <p id="share-status" class="sr-only" role="status" aria-live="polite">이미지를 준비하고 있습니다.</p>
@@ -34,5 +36,5 @@
     </div>
   </section>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', path='/js/share.js') }}?v=2"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='/js/share.js') }}?v=5"></script>{% endblock %}
 {% block tabbar %}{% include "_tab_bar.html" %}{% endblock %}

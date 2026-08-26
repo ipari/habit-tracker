@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.domain.schedules import ScheduleWindow, weekdays_to_mask
-from app.domain.streaks import calculate_streak
+from app.domain.streaks import calculate_achievement_stats, calculate_streak
 
 ALL_DAYS = weekdays_to_mask(list(range(7)))
 MON_WED_FRI = weekdays_to_mask([0, 2, 4])
@@ -46,3 +46,43 @@ def test_streak_crosses_year_and_leap_day() -> None:
     year_schedule = [ScheduleWindow(ALL_DAYS, date(2025, 12, 31))]
     year_completions = {date(2025, 12, 31), date(2026, 1, 1)}
     assert calculate_streak(date(2026, 1, 1), year_schedule, year_completions) == 2
+
+
+def test_achievement_stats_include_total_longest_and_current_counts() -> None:
+    schedules = [ScheduleWindow(ALL_DAYS, date(2026, 1, 1))]
+    completions = {
+        date(2026, 1, 1),
+        date(2026, 1, 2),
+        date(2026, 1, 4),
+        date(2026, 1, 5),
+        date(2026, 1, 6),
+        date(2026, 1, 8),
+    }
+
+    stats = calculate_achievement_stats(date(2026, 1, 8), schedules, completions)
+
+    assert stats.total_count == 6
+    assert stats.longest_streak == 3
+    assert stats.current_streak == 1
+
+
+def test_achievement_stats_do_not_end_current_streak_on_unfinished_today() -> None:
+    schedules = [ScheduleWindow(ALL_DAYS, date(2026, 1, 1))]
+    completions = {date(2026, 1, 1), date(2026, 1, 2)}
+
+    stats = calculate_achievement_stats(date(2026, 1, 3), schedules, completions)
+
+    assert stats.total_count == 2
+    assert stats.longest_streak == 2
+    assert stats.current_streak == 2
+
+
+def test_achievement_stats_ignore_future_completion_records() -> None:
+    schedules = [ScheduleWindow(ALL_DAYS, date(2026, 1, 1))]
+    completions = {date(2026, 1, 1), date(2026, 1, 2)}
+
+    stats = calculate_achievement_stats(date(2026, 1, 1), schedules, completions)
+
+    assert stats.total_count == 1
+    assert stats.longest_streak == 1
+    assert stats.current_streak == 1

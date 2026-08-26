@@ -8,6 +8,7 @@
       {{ habit_icon(habit.emoji, 'habit-emoji detail-icon') }}
       <div>
         <h1>{{ habit.name }}</h1>
+        <p class="muted detail-start-date">{{ start_label }}</p>
         {% if habit.archived_at %}<p class="muted detail-status">보관된 습관</p>{% endif %}
       </div>
     </div>
@@ -17,12 +18,21 @@
     <p class="detail-notice" role="status">습관을 보관했습니다. 과거 달성 기록과 일정은 그대로 유지됩니다.</p>
   {% endif %}
 
-  <section class="detail-streak" aria-label="현재 연속 달성">
-    <div>
-      <strong>{{ streak }}</strong>
-      <span>회 연속 달성</span>
-    </div>
-    <p>{{ start_label }}</p>
+  <section class="detail-achievements" aria-label="달성 통계">
+    <dl class="detail-achievement-grid">
+      <div class="detail-achievement current">
+        <dt>현재 연속 달성</dt>
+        <dd><strong>{{ achievement_stats.current_streak }}</strong></dd>
+      </div>
+      <div class="detail-achievement">
+        <dt>최장 연속 달성</dt>
+        <dd><strong>{{ achievement_stats.longest_streak }}</strong></dd>
+      </div>
+      <div class="detail-achievement">
+        <dt>총 달성</dt>
+        <dd><strong>{{ achievement_stats.total_count }}</strong></dd>
+      </div>
+    </dl>
   </section>
 
   <div class="detail-actions" aria-label="습관 작업">

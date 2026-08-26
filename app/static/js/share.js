@@ -62,7 +62,9 @@ function drawShareImage() {
   }
   const name = composer.dataset.habitName || "나의 습관";
   const emoji = composer.dataset.habitEmoji || "✨";
-  const streak = Number.parseInt(composer.dataset.streak || "0", 10);
+  const totalCount = Number.parseInt(composer.dataset.totalCount || "0", 10);
+  const longestStreak = Number.parseInt(composer.dataset.longestStreak || "0", 10);
+  const currentStreak = Number.parseInt(composer.dataset.currentStreak || "0", 10);
   const startLabel = composer.dataset.startLabel || "";
   const colors = PRESETS[composer.dataset.preset] || PRESETS.dawn;
 
@@ -101,15 +103,36 @@ function drawShareImage() {
   const firstLineY = 900 - ((lines.length - 1) * lineHeight) / 2;
   lines.forEach((line, index) => context.fillText(line, 540, firstLineY + index * lineHeight));
 
-  context.shadowBlur = 16;
-  context.font = '700 82px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
-  context.fillText(`연속 ${Number.isNaN(streak) ? 0 : streak}회 달성`, 540, 1270);
+  const achievementStats = [
+    ["현재 연속 달성", Number.isNaN(currentStreak) ? 0 : currentStreak],
+    ["최장 연속 달성", Number.isNaN(longestStreak) ? 0 : longestStreak],
+    ["총 달성", Number.isNaN(totalCount) ? 0 : totalCount],
+  ];
+  context.shadowBlur = 12;
+  achievementStats.forEach(([label, value], index) => {
+    const centerX = 210 + index * 330;
+    context.font = '600 30px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
+    context.fillStyle = "rgb(255 255 255 / 82%)";
+    context.fillText(label, centerX, 1195);
+    context.font = '700 76px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
+    context.fillStyle = "#ffffff";
+    context.fillText(String(value), centerX, 1285);
+  });
+
+  context.shadowBlur = 0;
+  context.strokeStyle = "rgb(255 255 255 / 28%)";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(375, 1170);
+  context.lineTo(375, 1330);
+  context.moveTo(705, 1170);
+  context.lineTo(705, 1330);
+  context.stroke();
 
   context.font = '500 38px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
   context.fillStyle = "rgb(255 255 255 / 82%)";
-  context.fillText(startLabel, 540, 1360);
+  context.fillText(startLabel, 540, 1450);
 
-  context.shadowBlur = 0;
   context.font = '600 30px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
   context.letterSpacing = "8px";
   context.fillStyle = "rgb(255 255 255 / 78%)";

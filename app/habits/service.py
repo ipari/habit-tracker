@@ -14,7 +14,7 @@ from app.domain.schedules import (
     mask_to_weekdays,
     schedule_for_date,
 )
-from app.domain.streaks import calculate_streak
+from app.domain.streaks import AchievementStats, calculate_achievement_stats
 
 
 @dataclass(frozen=True)
@@ -195,21 +195,23 @@ def remove_reminder(habit: Habit) -> None:
     habit.reminder = None
 
 
-def habit_streak(db: Session, habit_id: int, as_of: date) -> int:
+def habit_achievement_stats(
+    db: Session, habit_id: int, as_of: date
+) -> AchievementStats:
     schedules = schedule_windows(db, habit_id)
-    if not schedules:
-        return 0
-    first_date = min(schedule.effective_from for schedule in schedules)
     completions = set(
         db.scalars(
             select(HabitCompletion.local_date).where(
                 HabitCompletion.habit_id == habit_id,
-                HabitCompletion.local_date >= first_date,
                 HabitCompletion.local_date <= as_of,
             )
         ).all()
     )
-    return calculate_streak(as_of, schedules, completions)
+    return calculate_achievement_stats(as_of, schedules, completions)
+
+
+def habit_streak(db: Session, habit_id: int, as_of: date) -> int:
+    return habit_achievement_stats(db, habit_id, as_of).current_streak
 
 
 def today_habits(

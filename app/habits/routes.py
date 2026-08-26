@@ -17,6 +17,7 @@ from app.habits.service import (
     compact_schedule_label,
     current_local_date,
     effective_schedule,
+    habit_achievement_stats,
     habit_streak,
     latest_schedule,
     pause_schedule,
@@ -289,12 +290,13 @@ def habit_detail(
         local_date,
         identity.user_id,
     )
+    achievement_stats = habit_achievement_stats(db, habit.id, local_date)
     return render_template(
         request,
         "habits/detail.html",
         {
             "habit": habit,
-            "streak": habit_streak(db, habit.id, local_date),
+            "achievement_stats": achievement_stats,
             "start_label": habit_start_label(start_date),
             "schedule_label": detail_schedule_label(weekdays),
             "time_label": (
@@ -443,13 +445,14 @@ def share_habit(
         default=local_date,
     )
     origin = normalize_return_to(request.query_params.get("from"))
+    achievement_stats = habit_achievement_stats(db, habit.id, local_date)
     return render_template(
         request,
         "habits/share.html",
         {
             "habit": habit,
             "share_emoji": habit.emoji or "✨",
-            "streak": habit_streak(db, habit.id, local_date),
+            "achievement_stats": achievement_stats,
             "start_label": habit_start_label(start_date),
             "return_to": origin,
         },

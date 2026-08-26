@@ -123,9 +123,14 @@ def test_habit_detail_collects_management_actions(client: TestClient) -> None:
 
     assert detail.status_code == 200
     assert "물 마시기" in detail.text
-    assert "<strong>0</strong>" in detail.text
-    assert "회 연속 달성" in detail.text
+    assert "총 달성" in detail.text
+    assert "최장 연속 달성" in detail.text
+    assert "현재 연속 달성" in detail.text
+    assert detail.text.index("현재 연속 달성") < detail.text.index("최장 연속 달성")
+    assert detail.text.index("최장 연속 달성") < detail.text.index("총 달성")
+    assert detail.text.count("<strong>0</strong>") == 3
     assert f"{today.year}년 {today.month}월 {today.day}일 처음 시작" in detail.text
+    assert detail.text.index("처음 시작") < detail.text.index('aria-label="달성 통계"')
     assert f'href="/habits/{habit_id}/share?from=habits"' in detail.text
     assert "<span>공유</span>" in detail.text
     assert "습관 공유" not in detail.text
@@ -164,6 +169,37 @@ def test_habit_detail_collects_management_actions(client: TestClient) -> None:
     assert f'href="/habits/{habit_id}?from=habits"' in management.text
     assert f'href="/habits/{habit_id}/share"' not in management.text
     assert f'href="/habits/{habit_id}/edit"' not in management.text
+
+
+def test_habit_detail_shows_achievement_statistics(client: TestClient) -> None:
+    habit_id = create_habit(client)
+    database = client_database(client)
+    with database.session_factory() as db:
+        today = current_local_date(db)
+        schedule = db.scalar(
+            select(HabitSchedule).where(HabitSchedule.habit_id == habit_id)
+        )
+        assert schedule is not None
+        schedule.weekdays_mask = 127
+        schedule.effective_from = today - timedelta(days=6)
+        for days_ago in (6, 5, 3, 2, 1, 0):
+            db.add(
+                HabitCompletion(
+                    habit_id=habit_id,
+                    local_date=today - timedelta(days=days_ago),
+                )
+            )
+        db.commit()
+
+    detail = client.get(f"/habits/{habit_id}")
+
+    assert detail.status_code == 200
+    assert '<section class="detail-achievements" aria-label="달성 통계">' in detail.text
+    assert "총 달성" in detail.text
+    assert "<strong>6</strong>" in detail.text
+    assert "최장 연속 달성" in detail.text
+    assert "현재 연속 달성" in detail.text
+    assert detail.text.count("<strong>4</strong>") == 2
 
 
 def test_habit_detail_calendar_shows_completion_and_preserves_origin(
