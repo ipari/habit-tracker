@@ -32,7 +32,7 @@ def test_share_page_uses_achievement_stats_and_saved_preset(client: TestClient) 
     assert 'data-preset="ocean"' in response.text
     assert 'width="1080"' in response.text
     assert 'height="1920"' in response.text
-    assert "/static/js/share.js?v=5" in response.text
+    assert "/static/js/share.js?v=7" in response.text
     assert "<h1>공유하기</h1>" not in response.text
     assert 'aria-label="공유"' in response.text
     assert 'aria-label="다운로드"' in response.text
@@ -68,6 +68,7 @@ def test_share_script_has_file_share_and_download_fallback(client: TestClient) -
     assert '"총 달성"' in script.text
     assert script.text.index('"현재 연속 달성"') < script.text.index('"최장 연속 달성"')
     assert script.text.index('"최장 연속 달성"') < script.text.index('"총 달성"')
+    assert "context.roundRect" not in script.text
     assert '"최장 연속 달성"' in script.text
     assert '"현재 연속 달성"' in script.text
     assert 'setStatus("공유 이미지가 준비되었습니다.")' not in script.text

@@ -108,30 +108,31 @@ function drawShareImage() {
     ["최장 연속 달성", Number.isNaN(longestStreak) ? 0 : longestStreak],
     ["총 달성", Number.isNaN(totalCount) ? 0 : totalCount],
   ];
-  context.shadowBlur = 12;
+  context.shadowColor = "rgb(0 0 0 / 22%)";
+  context.shadowBlur = 10;
   achievementStats.forEach(([label, value], index) => {
     const centerX = 210 + index * 330;
     context.font = '600 30px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
     context.fillStyle = "rgb(255 255 255 / 82%)";
-    context.fillText(label, centerX, 1195);
+    context.fillText(label, centerX, 1190);
     context.font = '700 76px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
     context.fillStyle = "#ffffff";
-    context.fillText(String(value), centerX, 1285);
+    context.fillText(String(value), centerX, 1280);
   });
 
   context.shadowBlur = 0;
-  context.strokeStyle = "rgb(255 255 255 / 28%)";
+  context.strokeStyle = "rgb(255 255 255 / 20%)";
   context.lineWidth = 2;
   context.beginPath();
-  context.moveTo(375, 1170);
-  context.lineTo(375, 1330);
-  context.moveTo(705, 1170);
-  context.lineTo(705, 1330);
+  context.moveTo(375, 1155);
+  context.lineTo(375, 1325);
+  context.moveTo(705, 1155);
+  context.lineTo(705, 1325);
   context.stroke();
 
   context.font = '500 38px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
   context.fillStyle = "rgb(255 255 255 / 82%)";
-  context.fillText(startLabel, 540, 1450);
+  context.fillText(startLabel, 540, 1440);
 
   context.font = '600 30px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
   context.letterSpacing = "8px";
